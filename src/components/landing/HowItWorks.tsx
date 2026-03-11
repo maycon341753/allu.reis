@@ -1,4 +1,6 @@
-import { Search, ListChecks, FileText, Package } from "lucide-react";
+import { Search, ListChecks, FileText, Package, CheckCircle, XCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const steps = [
   { icon: Search, title: "Escolha o produto", description: "Navegue pelo catálogo e encontre o eletrônico ideal para você." },
@@ -36,6 +38,64 @@ export function HowItWorks() {
               <p className="mt-2 text-sm text-muted-foreground">{step.description}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-24 grid items-start gap-8 lg:grid-cols-2">
+          <div>
+            <h3 className="font-display text-3xl font-bold md:text-4xl">
+              <span className="text-primary">Assinar</span> é melhor
+              <br />
+              do que comprar
+            </h3>
+          </div>
+          <div className="flex justify-end">
+            <div className="flex items-stretch">
+              <Card className="rounded-2xl border bg-muted/30 w-[320px] md:w-[360px]">
+                <CardContent className="p-6">
+                  <p className="text-base font-semibold text-foreground">Comprar na loja</p>
+                  <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <XCircle size={18} className="text-destructive" />
+                      <span>Prende limite do cartão</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <XCircle size={18} className="text-destructive" />
+                      <span>Necessidade de contratação de seguro</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <XCircle size={18} className="text-destructive" />
+                      <span>Desvalorização na revenda do aparelho</span>
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl -ml-6 md:-ml-10 z-10 w-[320px] md:w-[360px] border bg-gradient-to-b from-emerald-900 to-emerald-700 text-emerald-50">
+                <CardContent className="p-6">
+                  <Badge className="bg-emerald-500 text-white border-transparent">MELHOR CUSTO BENEFÍCIO</Badge>
+                  <p className="mt-3 font-display text-xl font-semibold">Assinar na allu.reis</p>
+                  <ul className="mt-4 space-y-3 text-sm">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={18} className="text-emerald-300" />
+                      <span>Pagamento mês a mês</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={18} className="text-emerald-300" />
+                      <span>Cobertura roubo, furto qualificado e danos</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={18} className="text-emerald-300" />
+                      <span>Assistência técnica sem burocracia</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle size={18} className="text-emerald-300" />
+                      <span>Liberdade para trocar de modelo quando quiser</span>
+                    </li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </section>

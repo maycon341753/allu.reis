@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, MapPin, ChevronDown } from "lucide-react";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -39,6 +39,11 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <Button variant="ghost" className="gap-2 text-muted-foreground">
+            <MapPin size={16} />
+            <span>CEP</span>
+            <ChevronDown size={16} />
+          </Button>
           <Button variant="ghost" asChild>
             <Link to="/login">Login</Link>
           </Button>
