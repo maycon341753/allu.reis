@@ -80,8 +80,8 @@ export default function ClientPayments() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+          <table className="min-w-[640px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data</th>

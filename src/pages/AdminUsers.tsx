@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import AdminMobileNav from "@/components/admin/MobileNav";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -105,7 +106,7 @@ export default function AdminUsers() {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-8">
+      <main className="flex-1 p-6 md:p-8 pb-16">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Usuários</h1>
@@ -114,8 +115,8 @@ export default function AdminUsers() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+          <table className="min-w-[640px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nome</th>
@@ -158,6 +159,7 @@ export default function AdminUsers() {
           </table>
         </div>
       </main>
+      <AdminMobileNav />
     </div>
   );
 }

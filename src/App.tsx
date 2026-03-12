@@ -26,6 +26,9 @@ import AdminCredit from "./pages/AdminCredit";
 import AdminProducts from "./pages/AdminProducts";
 import AdminPayments from "./pages/AdminPayments";
 import Dashboard from "./pages/Dashboard";
+import Checkout from "./pages/Checkout";
+import CheckoutAddress from "./pages/CheckoutAddress";
+import CheckoutPayment from "./pages/CheckoutPayment";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +61,9 @@ const App = () => (
           <Route path="/admin/credito" element={<AdminCredit />} />
           <Route path="/admin/produtos" element={<AdminProducts />} />
           <Route path="/admin/pagamentos" element={<AdminPayments />} />
+          <Route path="/checkout/:id" element={<Checkout />} />
+          <Route path="/checkout/:id/endereco" element={<CheckoutAddress />} />
+          <Route path="/checkout/:id/pagamento" element={<CheckoutPayment />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

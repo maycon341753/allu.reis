@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import AdminMobileNav from "@/components/admin/MobileNav";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -86,7 +87,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 p-6 md:p-8">
+      <main className="flex-1 p-6 md:p-8 pb-16">
         <h1 className="font-display text-2xl font-bold">Painel Administrativo</h1>
         <p className="mt-1 text-muted-foreground">Visão geral da plataforma</p>
 
@@ -140,6 +141,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
+      <AdminMobileNav />
     </div>
   );
 }

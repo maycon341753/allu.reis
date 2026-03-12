@@ -1,42 +1,53 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
-import { mockProducts, type Product } from "@/data/products";
+import { supabase } from "@/lib/supabase";
 import { Smartphone, Watch, Tablet, Laptop, Filter } from "lucide-react";
 
 const categories = [
   { value: "todos", label: "Todos", icon: Filter },
-  { value: "celular", label: "Celulares", icon: Smartphone },
-  { value: "smartwatch", label: "Smartwatches", icon: Watch },
-  { value: "tablet", label: "Tablets", icon: Tablet },
-  { value: "notebook", label: "Notebooks", icon: Laptop },
+  { value: "Celular", label: "Celulares", icon: Smartphone },
+  { value: "Smartwhats", label: "Smartwatches", icon: Watch },
+  { value: "Tablets", label: "Tablets", icon: Tablet },
+  { value: "Notebooks", label: "Notebooks", icon: Laptop },
 ];
 
-function ProductCard({ product }: { product: Product }) {
+type CatalogProduct = {
+  id: string;
+  nome: string;
+  categoria: string;
+  imagem?: string | null;
+  preco_mensal?: number | null;
+  marca?: string | null;
+};
+
+const displayCategory = (c: string) => (c === "Iphone" ? "Celular" : c);
+
+function ProductCard({ product }: { product: CatalogProduct }) {
   return (
     <div className="card-elevated group rounded-2xl border border-border bg-card overflow-hidden">
       <div className="aspect-square overflow-hidden bg-secondary">
         <img
-          src={product.imagem}
+          src={product.imagem || "/assets/placeholder.png"}
           alt={product.nome}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       </div>
       <div className="p-5">
-        <span className="text-xs font-medium uppercase tracking-wider text-primary">{product.categoria}</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-primary">{displayCategory(product.categoria)}</span>
         <h3 className="mt-1 font-display text-lg font-semibold leading-tight">{product.nome}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{product.marca}</p>
+        {product.marca && <p className="mt-1 text-sm text-muted-foreground">{product.marca}</p>}
         <div className="mt-4 flex items-end gap-1">
           <span className="text-sm text-muted-foreground">a partir de</span>
           <span className="font-display text-2xl font-bold text-primary">
-            R${product.preco36}
+            {product.preco_mensal != null ? `R$ ${product.preco_mensal}` : "—"}
           </span>
           <span className="text-sm text-muted-foreground">/mês</span>
         </div>
         <Button className="mt-4 w-full" asChild>
-          <Link to={`/produtos/${product.id}`}>Alugar</Link>
+          <Link to={`/checkout/${product.id}`}>Assinar</Link>
         </Button>
       </div>
     </div>
@@ -45,10 +56,41 @@ function ProductCard({ product }: { product: Product }) {
 
 export default function ProductsPage() {
   const [category, setCategory] = useState("todos");
+  const [items, setItems] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, nome, categoria, image_url, preco_mensal, status")
+        .eq("status", "Ativo")
+        .limit(200);
+      if (!error && data) {
+        setItems(
+          data.map((d: any) => ({
+            id: d.id,
+            nome: d.nome,
+            categoria: d.categoria,
+            imagem: d.image_url ?? null,
+            preco_mensal: d.preco_mensal ?? null,
+            marca: null,
+          })),
+        );
+      } else {
+        setItems([]);
+      }
+      setLoading(false);
+    };
+    run();
+  }, []);
 
   const filtered = category === "todos"
-    ? mockProducts
-    : mockProducts.filter((p) => p.categoria === category);
+    ? items
+    : items.filter((p) =>
+        category === "Celular" ? (p.categoria === "Celular" || p.categoria === "Iphone") : p.categoria === category
+      );
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,6 +123,9 @@ export default function ProductsPage() {
             {filtered.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
+            {!loading && filtered.length === 0 && (
+              <div className="col-span-full text-center text-muted-foreground">Nenhum produto encontrado</div>
+            )}
           </div>
         </div>
       </main>

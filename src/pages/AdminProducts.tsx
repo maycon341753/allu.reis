@@ -11,7 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import AdminMobileNav from "@/components/admin/MobileNav";
+import { Badge } from "@/components/ui/badge";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -52,6 +54,15 @@ export default function AdminProducts() {
   const [pStatus, setPStatus] = useState<ProductRow["status"]>("Ativo");
   const [pFile, setPFile] = useState<File | null>(null);
   const [pPreview, setPPreview] = useState<string | null>(null);
+  const specOptions = [`Tela 6.1" OLED`, "Chip A17 Pro", "128GB", "Câmera 48MP", "5G"];
+  const [pSpecs, setPSpecs] = useState<string[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [eId, setEId] = useState<string | null>(null);
+  const [eNome, setENome] = useState("");
+  const [eCategoria, setECategoria] = useState("");
+  const [eMensal, setEMensal] = useState("");
+  const [eEstoque, setEEstoque] = useState("");
+  const [eStatus, setEStatus] = useState<ProductRow["status"]>("Ativo");
   useEffect(() => {
     if (!pFile) {
       setPPreview(null);
@@ -71,6 +82,59 @@ export default function AdminProducts() {
     const digits = v.replace(/\D/g, "");
     if (!digits) return 0;
     return Number(digits) / 100;
+  };
+  const openEdit = (row: ProductRow) => {
+    setEId(row.id);
+    setENome(row.nome);
+    setECategoria(row.categoria);
+    setEMensal(row.preco_mensal);
+    setEEstoque(String(row.estoque));
+    setEStatus(row.status);
+    setEditOpen(true);
+  };
+  const saveEdit = async () => {
+    if (!eId) return;
+    if (!eNome || !eCategoria || !eMensal || !eEstoque) {
+      toast({ title: "Preencha todos os campos" });
+      return;
+    }
+    const price = parseBRL(eMensal);
+    const stock = parseInt(eEstoque, 10);
+    if (Number.isNaN(price) || Number.isNaN(stock)) {
+      toast({ title: "Valores inválidos", description: "Verifique mensal e estoque" });
+      return;
+    }
+    const { error } = await supabase
+      .from("products")
+      .update({
+        nome: eNome,
+        categoria: eCategoria,
+        preco_mensal: price,
+        estoque: stock,
+        status: eStatus,
+      })
+      .eq("id", eId);
+    if (error) {
+      toast({ title: "Não foi possível salvar", description: error.message });
+      return;
+    }
+    setRows((r) =>
+      r.map((x) =>
+        x.id === eId
+          ? {
+              ...x,
+              nome: eNome,
+              categoria: eCategoria,
+              preco_mensal: eMensal,
+              estoque: stock,
+              status: eStatus,
+            }
+          : x
+      )
+    );
+    toast({ title: "Produto atualizado" });
+    setEditOpen(false);
+    setEId(null);
   };
 
   useEffect(() => {
@@ -158,6 +222,7 @@ export default function AdminProducts() {
         preco_mensal: price,
         estoque: stock,
         status: pStatus,
+        specs: pSpecs,
       })
       .select("id, nome, categoria, preco_mensal, estoque, status, image_url")
       .single();
@@ -207,6 +272,7 @@ export default function AdminProducts() {
     setPEstoque("");
     setPStatus("Ativo");
     setPFile(null);
+    setPSpecs([]);
   };
 
   return (
@@ -244,7 +310,7 @@ export default function AdminProducts() {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-8">
+      <main className="flex-1 p-6 md:p-8 pb-16">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Produtos</h1>
@@ -268,7 +334,18 @@ export default function AdminProducts() {
                   </div>
                   <div>
                     <Label htmlFor="np_categoria">Categoria</Label>
-                    <Input id="np_categoria" value={pCategoria} onChange={(e) => setPCategoria(e.target.value)} className="mt-1" />
+                    <Select value={pCategoria} onValueChange={(v) => setPCategoria(v)}>
+                      <SelectTrigger id="np_categoria" className="mt-1">
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Smartwhats">Smartwhats</SelectItem>
+                        <SelectItem value="Celular">Celular</SelectItem>
+                        <SelectItem value="Iphone">Iphone</SelectItem>
+                        <SelectItem value="Tablets">Tablets</SelectItem>
+                        <SelectItem value="Notebooks">Notebooks</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="np_mensal">Mensal (R$)</Label>
@@ -283,6 +360,51 @@ export default function AdminProducts() {
                   <div>
                     <Label htmlFor="np_estoque">Estoque</Label>
                     <Input id="np_estoque" value={pEstoque} onChange={(e) => setPEstoque(e.target.value)} className="mt-1" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Especificações</Label>
+                    <Select onValueChange={(v) => setPSpecs((prev) => (prev.includes(v) ? prev : [...prev, v]))}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Selecione as especificações" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Tela</SelectLabel>
+                          <SelectItem value={`Tela 6.1" OLED`}>Tela 6.1" OLED</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Chip</SelectLabel>
+                          <SelectItem value="Chip A17 Pro">Chip A17 Pro</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Armazenamento</SelectLabel>
+                          <SelectItem value="128GB">128GB</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Câmera</SelectLabel>
+                          <SelectItem value="Câmera 48MP">Câmera 48MP</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Conectividade</SelectLabel>
+                          <SelectItem value="5G">5G</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {pSpecs.map((s) => (
+                        <button
+                          key={s}
+                          className="inline-flex items-center rounded-full bg-secondary px-2 py-1 text-xs text-secondary-foreground"
+                          onClick={() => setPSpecs((prev) => prev.filter((x) => x !== s))}
+                          type="button"
+                          aria-label={s}
+                          title="Remover"
+                        >
+                          {s}
+                          <span className="ml-1">×</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="sm:col-span-2">
                     <Label>Status</Label>
@@ -400,6 +522,7 @@ export default function AdminProducts() {
                           </div>
                         </DialogContent>
                       </Dialog>
+                      <Button variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
                       <Button variant="success" size="sm" onClick={() => setStatus(row, "Ativo")}>Ativar</Button>
                       <Button variant="destructive" size="sm" onClick={() => setStatus(row, "Indisponível")}>Indisponibilizar</Button>
                     </div>
@@ -417,6 +540,58 @@ export default function AdminProducts() {
           </table>
         </div>
       </main>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar produto</DialogTitle>
+            <DialogDescription>Atualize os dados do item</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ep_nome">Nome</Label>
+              <Input id="ep_nome" value={eNome} onChange={(e) => setENome(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="ep_categoria">Categoria</Label>
+              <Select value={eCategoria} onValueChange={(v) => setECategoria(v)}>
+                <SelectTrigger id="ep_categoria" className="mt-1">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Smartwhats">Smartwhats</SelectItem>
+                  <SelectItem value="Celular">Celular</SelectItem>
+                  <SelectItem value="Iphone">Iphone</SelectItem>
+                  <SelectItem value="Tablets">Tablets</SelectItem>
+                  <SelectItem value="Notebooks">Notebooks</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="ep_mensal">Mensal (R$)</Label>
+              <Input id="ep_mensal" value={eMensal} onChange={(e) => setEMensal(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="ep_estoque">Estoque</Label>
+              <Input id="ep_estoque" value={eEstoque} onChange={(e) => setEEstoque(e.target.value)} className="mt-1" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Status</Label>
+              <Select value={eStatus} onValueChange={(v) => setEStatus(v as ProductRow["status"])}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Ativo">Ativo</SelectItem>
+                  <SelectItem value="Indisponível">Indisponível</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 flex gap-2">
+              <Button onClick={saveEdit}>Salvar</Button>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <AdminMobileNav />
     </div>
   );
 }

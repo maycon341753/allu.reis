@@ -48,9 +48,9 @@ export function HowItWorks() {
               do que comprar
             </h3>
           </div>
-          <div className="flex justify-end">
-            <div className="flex items-stretch">
-              <Card className="rounded-2xl border bg-muted/30 w-[320px] md:w-[360px]">
+          <div className="flex justify-center lg:justify-end">
+            <div className="flex flex-col sm:flex-row sm:items-stretch sm:gap-4">
+              <Card className="rounded-2xl border bg-muted/30 w-full sm:w-[320px] md:w-[360px]">
                 <CardContent className="p-6">
                   <p className="text-base font-semibold text-foreground">Comprar na loja</p>
                   <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
@@ -70,7 +70,7 @@ export function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl -ml-6 md:-ml-10 z-10 w-[320px] md:w-[360px] border bg-gradient-to-b from-emerald-900 to-emerald-700 text-emerald-50">
+              <Card className="rounded-2xl sm:-ml-6 md:-ml-10 z-10 w-full sm:w-[320px] md:w-[360px] border bg-gradient-to-b from-emerald-900 to-emerald-700 text-emerald-50 mt-4 sm:mt-0">
                 <CardContent className="p-6">
                   <Badge className="bg-emerald-500 text-white border-transparent">MELHOR CUSTO BENEFÍCIO</Badge>
                   <p className="mt-3 font-display text-xl font-semibold">Assinar na allu.reis</p>
