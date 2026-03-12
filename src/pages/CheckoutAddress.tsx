@@ -20,6 +20,33 @@ export default function CheckoutAddress() {
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
   const [info, setInfo] = useState<any>(null);
+  const formatCEP = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 8);
+    const p1 = d.slice(0, 5);
+    const p2 = d.slice(5, 8);
+    let out = "";
+    if (p1) out = p1;
+    if (p2) out = `${p1}-${p2}`;
+    return out;
+  };
+  const handleCepChange = async (v: string) => {
+    const masked = formatCEP(v);
+    setCep(masked);
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 8) {
+      try {
+        const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const j = await r.json();
+        if (!j.erro) {
+          if (!entrega) setEntrega(j.logradouro || "");
+          if (!residencial) setResidencial(j.logradouro || "");
+          setBairro(j.bairro || "");
+          setCidade(j.localidade || "");
+          setEstado(j.uf || "");
+        }
+      } catch {}
+    }
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -94,7 +121,7 @@ export default function CheckoutAddress() {
                 </div>
                 <div>
                   <Label htmlFor="addr_cep">CEP</Label>
-                  <Input id="addr_cep" value={cep} onChange={(e) => setCep(e.target.value)} className="mt-1" />
+                  <Input id="addr_cep" value={cep} onChange={(e) => handleCepChange(e.target.value)} className="mt-1" maxLength={9} inputMode="numeric" />
                 </div>
                 <div>
                   <Label htmlFor="addr_comp">Complemento (opcional)</Label>

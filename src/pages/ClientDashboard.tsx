@@ -57,44 +57,21 @@ export default function ClientDashboard() {
       {/* Main */}
       <main className="flex-1 p-6 md:p-8">
         <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-        <p className="mt-1 text-muted-foreground">Bem-vindo de volta, João!</p>
+        <p className="mt-1 text-muted-foreground">Bem-vindo!</p>
 
-        {/* Stats */}
+        {/* Resumo */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: "Produtos ativos", value: "2", color: "text-primary" },
-            { label: "Próxima cobrança", value: "R$528", color: "text-foreground" },
-            { label: "Meses restantes", value: "18", color: "text-foreground" },
-            { label: "Pagamentos em dia", value: "✓", color: "text-primary" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className={`mt-1 font-display text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Resumo</p>
+            <p className="mt-1 font-display text-2xl font-bold">—</p>
+          </div>
         </div>
 
-        {/* Active rentals */}
+        {/* Aluguéis */}
         <div className="mt-8">
           <h2 className="font-display text-lg font-semibold">Produtos alugados</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {[
-              { nome: "iPhone 15 Pro 128GB", plano: "24 meses", valor: "R$289/mês", restante: "18 meses" },
-              { nome: "Apple Watch Series 9", plano: "24 meses", valor: "R$149/mês", restante: "18 meses" },
-            ].map((rental) => (
-              <div key={rental.nome} className="rounded-xl border border-border bg-card p-5">
-                <h3 className="font-display font-semibold">{rental.nome}</h3>
-                <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                  <p>Plano: {rental.plano}</p>
-                  <p>Valor: {rental.valor}</p>
-                  <p>Tempo restante: {rental.restante}</p>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">Suporte</button>
-                  <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">Trocar</button>
-                </div>
-              </div>
-            ))}
+          <div className="mt-4 rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+            Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
           </div>
         </div>
       </main>

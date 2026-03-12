@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut } from "lucide-react";
 
 const menuItems = [
@@ -12,6 +14,30 @@ const menuItems = [
 
 export default function ClientRentals() {
   const location = useLocation();
+  const [rows, setRows] = useState<Array<{ produto: string; plano: string; valor: string; status: string }>>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("produto, plano, valor, status")
+        .order("created_at", { descending: true })
+        .limit(20);
+      if (!error && data) {
+        setRows(
+          data.map((d: any) => ({
+            produto: d.produto || "",
+            plano: d.plano || "",
+            valor: d.valor != null ? String(d.valor) : "",
+            status: d.status || "",
+          })),
+        );
+      } else {
+        setRows([]);
+      }
+    };
+    run();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -53,27 +79,28 @@ export default function ClientRentals() {
         <p className="mt-1 text-muted-foreground">Acompanhe seus produtos alugados e status.</p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {[
-            { nome: "iPhone 15 Pro 128GB", plano: "24 meses", valor: "R$289/mês", restante: "18 meses", status: "Ativo" },
-            { nome: "Apple Watch Series 9", plano: "24 meses", valor: "R$149/mês", restante: "18 meses", status: "Ativo" },
-          ].map((rental) => (
-            <div key={rental.nome} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex items-start justify-between">
-                <h3 className="font-display font-semibold">{rental.nome}</h3>
-                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{rental.status}</span>
+          {rows.length > 0 ? (
+            rows.map((rental, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-5">
+                <div className="flex items-start justify-between">
+                  <h3 className="font-display font-semibold">{rental.produto}</h3>
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{rental.status}</span>
+                </div>
+                <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                  <p>Plano: {rental.plano || "—"}</p>
+                  <p>Valor: {rental.valor ? `R$ ${rental.valor}/mês` : "—"}</p>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">Suporte</button>
+                  <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Ver contrato</button>
+                </div>
               </div>
-              <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                <p>Plano: {rental.plano}</p>
-                <p>Valor: {rental.valor}</p>
-                <p>Tempo restante: {rental.restante}</p>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">Suporte</button>
-                <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">Trocar</button>
-                <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Ver contrato</button>
-              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+              Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
             </div>
-          ))}
+          )}
         </div>
       </main>
     </div>

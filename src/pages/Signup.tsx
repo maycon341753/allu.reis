@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [cpf, setCpf] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -80,7 +81,12 @@ export default function SignupPage() {
         title: "Conta criada com sucesso!",
         description: "Você já pode fazer login.",
       });
-      navigate("/login");
+      const next = searchParams.get("next");
+      if (next) {
+        navigate(next);
+      } else {
+        navigate("/cliente");
+      }
       form.reset();
       setCpf("");
     } catch (err: any) {
@@ -92,6 +98,24 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("checkoutInfo");
+      if (saved) {
+        const obj = JSON.parse(saved);
+        const d = String(obj?.cpf || "").replace(/\D/g, "");
+        const v =
+          d.length <= 3
+            ? d
+            : d.length <= 6
+            ? `${d.slice(0, 3)}.${d.slice(3)}`
+            : d.length <= 9
+            ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+            : `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
+        setCpf(v);
+      }
+    } catch {}
+  }, []);
   return (
     <div className="min-h-screen bg-background">
       <Header />

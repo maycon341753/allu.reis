@@ -6,9 +6,11 @@ serve(async (req) => {
     "content-type": "application/json",
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
   };
-  if (req.method === "OPTIONS") return new Response("", { headers });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers });
+  }
   try {
     const { name, cpfCnpj, email, phone } = await req.json();
     const token = Deno.env.get("ASAAS_API_KEY") ?? "";

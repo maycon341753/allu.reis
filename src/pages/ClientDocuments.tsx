@@ -1,5 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut, Upload, Eye, Download } from "lucide-react";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/cliente" },
@@ -12,6 +15,87 @@ const menuItems = [
 
 export default function ClientDocuments() {
   const location = useLocation();
+  const [uid, setUid] = useState<string | null>(null);
+  const [rows, setRows] = useState<Array<{ doc: string; tipo: string; status: string; updated: string; url?: string | null }>>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const docTypes = [
+    { doc: "RG ou CNH (frente)", tipo: "rg_frente" },
+    { doc: "RG ou CNH (verso)", tipo: "rg_verso" },
+    { doc: "Selfie com documento", tipo: "selfie_documento" },
+    { doc: "Comprovante de residência", tipo: "comprovante_residencia" },
+    { doc: "Carteira de trabalho (para assinatura Boleto)", tipo: "carteira_trabalho" },
+  ];
+
+  useEffect(() => {
+    const run = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id || null;
+      setUid(userId);
+      let docs: any[] = [];
+      if (userId) {
+        const { data } = await supabase
+          .from("documents")
+          .select("id, tipo, status, url, updated_at")
+          .eq("user_id", userId)
+          .limit(50);
+        docs = data || [];
+      }
+      const byTipo: Record<string, any> = {};
+      docs.forEach((d) => (byTipo[d.tipo] = d));
+      const fmt = (v?: string | null) => {
+        if (!v) return "—";
+        try {
+          const dt = new Date(v);
+          const dd = String(dt.getDate()).padStart(2, "0");
+          const mm = String(dt.getMonth() + 1).padStart(2, "0");
+          const yy = dt.getFullYear();
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const min = String(dt.getMinutes()).padStart(2, "0");
+          return `${dd}/${mm}/${yy} ${hh}:${min}`;
+        } catch {
+          return v;
+        }
+      };
+      setRows(
+        docTypes.map((t) => ({
+          doc: t.doc,
+          tipo: t.tipo,
+          status: byTipo[t.tipo]?.status || "Pendente",
+          updated: fmt(byTipo[t.tipo]?.updated_at),
+          url: byTipo[t.tipo]?.url ?? null,
+        })),
+      );
+    };
+    run();
+  }, []);
+
+  const handleChoose = (tipo: string) => {
+    if (!fileInputRef.current) return;
+    (fileInputRef.current as any).dataset.tipo = tipo;
+    fileInputRef.current.click();
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const tipo = (e.target as any).dataset?.tipo;
+    if (!file || !uid || !tipo) return;
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${uid}/${tipo}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("documents").upload(path, file, { upsert: true });
+    if (upErr) {
+      alert("Falha no upload: " + upErr.message);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+    const publicUrl = urlData?.publicUrl || null;
+    await supabase
+      .from("documents")
+      .upsert({ user_id: uid, tipo, nome: file.name, status: "Pendente", url: publicUrl }, { onConflict: "user_id,tipo" });
+    setRows((r) =>
+      r.map((row) => (row.tipo === tipo ? { ...row, status: "Pendente", updated: new Date().toISOString(), url: publicUrl } : row)),
+    );
+    e.target.value = "";
+  };
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -53,16 +137,10 @@ export default function ClientDocuments() {
         <p className="mt-1 text-muted-foreground">Envie e acompanhe seus documentos de verificação.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {[
-            { label: "Documentos pendentes", value: "1", color: "text-yellow-600" },
-            { label: "Documentos aprovados", value: "3", color: "text-primary" },
-            { label: "Última atualização", value: "12/03 às 09:15", color: "text-foreground" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className={`mt-1 font-display text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Resumo</p>
+            <p className="mt-1 font-display text-2xl font-bold">—</p>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
@@ -76,33 +154,40 @@ export default function ClientDocuments() {
               </tr>
             </thead>
             <tbody>
-              {[
-                { doc: "RG ou CNH (frente)", status: "Aprovado", updated: "11/03 14:22" },
-                { doc: "RG ou CNH (verso)", status: "Aprovado", updated: "11/03 14:24" },
-                { doc: "Selfie com documento", status: "Aprovado", updated: "11/03 14:30" },
-                { doc: "Comprovante de residência", status: "Pendente", updated: "—" },
-              ].map((row, i) => (
+              {rows.map((row, i) => (
                 <tr key={i} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">{row.doc}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      row.status === "Aprovado" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"
-                    }`}>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        row.status === "Aprovado"
+                          ? "bg-primary/10 text-primary"
+                          : row.status === "Rejeitado"
+                          ? "bg-red-500/10 text-red-600"
+                          : "bg-yellow-500/10 text-yellow-600"
+                      }`}
+                    >
                       {row.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{row.updated}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">
-                        Baixar
-                      </button>
-                      <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors">
-                        Enviar
-                      </button>
-                      <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">
-                        Ver
-                      </button>
+                      <Button variant="outline" size="sm" onClick={() => handleChoose(row.tipo)}>
+                        <Upload className="mr-1 h-4 w-4" /> Enviar
+                      </Button>
+                      <Button variant="secondary" size="sm" disabled={!row.url} onClick={() => row.url && window.open(row.url, "_blank")}>
+                        <Eye className="mr-1 h-4 w-4" /> Ver
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!row.url}
+                        onClick={() => row.url && window.open(row.url, "_blank")}
+                        title="Baixar"
+                      >
+                        <Download className="mr-1 h-4 w-4" /> Baixar
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -110,6 +195,7 @@ export default function ClientDocuments() {
             </tbody>
           </table>
         </div>
+        <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
       </main>
     </div>
   );

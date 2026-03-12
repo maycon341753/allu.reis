@@ -36,6 +36,29 @@ export default function Checkout() {
     if (p4) out = `${p1}.${p2}.${p3}-${p4}`;
     return out;
   };
+  const formatDate = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 8);
+    const p1 = d.slice(0, 2);
+    const p2 = d.slice(2, 4);
+    const p3 = d.slice(4, 8);
+    let out = "";
+    if (p1) out = p1;
+    if (p2) out = `${p1}/${p2}`;
+    if (p3) out = `${p1}/${p2}/${p3}`;
+    return out;
+  };
+  const formatPhone = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 11);
+    const ddd = d.slice(0, 2);
+    const nine = d.slice(2, 3);
+    const p1 = d.length > 10 ? d.slice(3, 7) : d.slice(2, 6);
+    const p2 = d.length > 10 ? d.slice(7, 11) : d.slice(6, 10);
+    let out = "";
+    if (ddd) out = `(${ddd})`;
+    if (d.length > 10) out = `(${ddd}) ${nine}${p1}${p2 ? "-" + p2 : ""}`;
+    else if (p1) out = `(${ddd}) ${p1}${p2 ? "-" + p2 : ""}`;
+    return out.trim();
+  };
   const onlyDigits = (v: string) => v.replace(/\D/g, "");
 
   useEffect(() => {
@@ -120,7 +143,7 @@ export default function Checkout() {
                 </div>
                 <div>
                   <Label htmlFor="ck_nasc">Data de nascimento</Label>
-                  <Input id="ck_nasc" placeholder="dd/mm/aaaa" value={nascimento} onChange={(e) => setNascimento(e.target.value)} className="mt-1" />
+                  <Input id="ck_nasc" placeholder="dd/mm/aaaa" value={nascimento} onChange={(e) => setNascimento(formatDate(e.target.value))} className="mt-1" maxLength={10} inputMode="numeric" />
                 </div>
                 <div>
                   <Label htmlFor="ck_email">E-mail</Label>
@@ -128,7 +151,7 @@ export default function Checkout() {
                 </div>
                 <div>
                   <Label htmlFor="ck_tel">Telefone</Label>
-                  <Input id="ck_tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="mt-1" />
+                  <Input id="ck_tel" value={telefone} onChange={(e) => setTelefone(formatPhone(e.target.value))} className="mt-1" maxLength={16} inputMode="numeric" />
                 </div>
               </div>
               <Button className="mt-6 w-full" onClick={goToAddress} disabled={loading || !product}>

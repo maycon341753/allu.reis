@@ -17,19 +17,48 @@ export default function ClientPayments() {
   const [rows, setRows] = useState<Array<{ data: string; produto: string; valor: string; status: string }>>([]);
   useEffect(() => {
     const run = async () => {
-      const { data, error } = await supabase.from("payments").select("vencimento, produto, valor, status").order("vencimento", { descending: true }).limit(20);
-      if (!error && data) {
-        setRows(
-          data.map((d: any) => ({
-            data: d.vencimento || "",
-            produto: d.produto || "",
-            valor: d.valor != null ? String(d.valor) : "",
-            status: d.status || "",
-          })),
-        );
-      } else {
-        setRows([]);
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      let cpfDigits = "";
+      if (uid) {
+        const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
+        cpfDigits = String(profile?.cpf || "").replace(/\D/g, "");
       }
+      const { data, error } = await supabase
+        .from("payments")
+        .select("vencimento, produto, valor, status, cliente_cpf")
+        .eq("cliente_cpf", cpfDigits)
+        .order("vencimento", { descending: true })
+        .limit(20);
+      if (error || !data) {
+        setRows([]);
+        return;
+      }
+      const fmt = (v: any) => {
+        if (!v) return "";
+        const s = String(v);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          const [y, m, d] = s.split("-");
+          return `${d}/${m}/${y}`;
+        }
+        try {
+          const dt = new Date(s);
+          const dd = String(dt.getDate()).padStart(2, "0");
+          const mm = String(dt.getMonth() + 1).padStart(2, "0");
+          const yy = dt.getFullYear();
+          return `${dd}/${mm}/${yy}`;
+        } catch {
+          return s;
+        }
+      };
+      setRows(
+        data.map((d: any) => ({
+          data: fmt(d.vencimento),
+          produto: d.produto || "",
+          valor: d.valor != null ? `R$ ${Number(d.valor).toFixed(2)}` : "",
+          status: d.status || "",
+        })),
+      );
     };
     run();
   }, []);

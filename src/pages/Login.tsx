@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,7 +43,12 @@ export default function LoginPage() {
         }
       }
       toast({ title: "Login realizado", description: isAdmin ? "Bem-vindo, administrador" : "Bem-vindo!" });
-      navigate(isAdmin ? "/admin" : "/cliente");
+      const next = searchParams.get("next");
+      if (next) {
+        navigate(next);
+      } else {
+        navigate(isAdmin ? "/admin" : "/cliente");
+      }
     } catch (err: any) {
       toast({ title: "Erro ao entrar", description: err?.message || "Tente novamente" });
     } finally {
