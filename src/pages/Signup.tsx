@@ -1,12 +1,97 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock, User, Phone, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, Phone, ArrowRight, IdCard } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SignupPage() {
+  const navigate = useNavigate();
+  const [cpf, setCpf] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const formatCpf = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
+  };
+  const isValidCpfFormat = (v: string) => /^[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}$/.test(v.trim());
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (loading) return;
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const full_name = String(data.get("name") || "").trim();
+    const email = String(data.get("email") || "").trim();
+    const phone = String(data.get("phone") || "").trim();
+    const password = String(data.get("password") || "");
+    const passwordConfirm = String(data.get("passwordConfirm") || "");
+    const cpfValue = cpf.trim();
+    if (!isValidCpfFormat(cpfValue)) {
+      toast({ title: "CPF inválido", description: "Use o formato 000.000.000-00" });
+      return;
+    }
+    if (!email || !password || !full_name || !phone) {
+      toast({ title: "Preencha os campos obrigatórios", description: "Nome, CPF, e‑mail, telefone e senha são obrigatórios" });
+      return;
+    }
+    if (password.length < 8) {
+      toast({ title: "Senha fraca", description: "A senha deve ter pelo menos 8 caracteres" });
+      return;
+    }
+    if (password !== passwordConfirm) {
+      toast({ title: "Senhas diferentes", description: "Confirme a mesma senha digitada" });
+      return;
+    }
+    try {
+      setLoading(true);
+      const { data: signData, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name,
+            phone,
+            cpf: cpfValue.replace(/\D/g, ""),
+          },
+        },
+      });
+      if (error) throw error;
+      const uid = signData.session?.user?.id;
+      if (uid) {
+        const { error: upsertError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: uid,
+            full_name,
+            phone,
+            cpf: cpfValue.replace(/\D/g, ""),
+          });
+        if (upsertError) {
+          toast({ title: "Perfil não atualizado", description: upsertError.message });
+        }
+      }
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Você já pode fazer login.",
+      });
+      navigate("/login");
+      form.reset();
+      setCpf("");
+    } catch (err: any) {
+      toast({
+        title: "Erro ao criar conta",
+        description: err?.message || "Tente novamente mais tarde",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -20,36 +105,87 @@ export default function SignupPage() {
             <p className="mt-2 text-muted-foreground">Comece a alugar tecnologia agora</p>
           </div>
 
-          <form className="mt-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="name">Nome completo</Label>
               <div className="relative mt-1">
                 <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="name" placeholder="Seu nome" className="pl-10" />
+                <Input id="name" name="name" placeholder="Seu nome" className="pl-10" required />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="cpf">CPF</Label>
+              <div className="relative mt-1">
+                <IdCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="cpf"
+                  name="cpf"
+                  inputMode="numeric"
+                  title="Informe 11 dígitos no formato 000.000.000-00"
+                  placeholder="000.000.000-00"
+                  className="pl-10"
+                  required
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  maxLength={14}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (!isValidCpfFormat(v)) {
+                      e.target.setCustomValidity("Informe 11 dígitos no formato 000.000.000-00");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                  }}
+                  onInput={(e) => {
+                    const t = e.currentTarget;
+                    t.setCustomValidity("");
+                  }}
+                />
               </div>
             </div>
             <div>
               <Label htmlFor="email">E-mail</Label>
               <div className="relative mt-1">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="seu@email.com" className="pl-10" />
+                <Input id="email" name="email" type="email" placeholder="seu@email.com" className="pl-10" required />
               </div>
             </div>
             <div>
               <Label htmlFor="phone">Telefone</Label>
               <div className="relative mt-1">
                 <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="phone" placeholder="(11) 99999-9999" className="pl-10" />
+                <Input id="phone" name="phone" placeholder="(11) 99999-9999" className="pl-10" required />
               </div>
             </div>
             <div>
               <Label htmlFor="password">Senha</Label>
               <div className="relative mt-1">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="password" type="password" placeholder="Mínimo 8 caracteres" className="pl-10" />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Mínimo 8 caracteres"
+                  className="pl-10"
+                  required
+                />
               </div>
             </div>
-            <Button className="w-full gap-2" size="lg">
+            <div>
+              <Label htmlFor="passwordConfirm">Confirmar senha</Label>
+              <div className="relative mt-1">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="passwordConfirm"
+                  name="passwordConfirm"
+                  type="password"
+                  placeholder="Repita a senha"
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+            <Button className="w-full gap-2" size="lg" disabled={loading}>
               Criar conta <ArrowRight size={16} />
             </Button>
           </form>
