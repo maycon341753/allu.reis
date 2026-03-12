@@ -42,21 +42,14 @@ export default function AdminCredit() {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      const demo: CreditRow[] = [
-        { id: "#CR-3001", user_id: null, nome: "Maria Silva", score: 742, status: "Em análise", updated_at: "12/03 10:11" },
-        { id: "#CR-2999", user_id: null, nome: "João Santos", score: 615, status: "Aprovado", updated_at: "10/03 18:47" },
-        { id: "#CR-2995", user_id: null, nome: "Ana Costa", score: 522, status: "Rejeitado", updated_at: "09/03 08:22" },
-      ];
       try {
         const { data, error } = await supabase
           .from("credit_checks")
           .select("id, user_id, nome, score, status, updated_at")
           .limit(50);
-        if (error || !data) {
-          setRows(demo);
-        } else {
+        if (!error) {
           setRows(
-            data.map((d: any) => ({
+            (data || []).map((d: any) => ({
               id: d.id || "",
               user_id: d.user_id ?? null,
               nome: d.nome || "",

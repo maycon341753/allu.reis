@@ -24,6 +24,7 @@ import AdminConfig from "./pages/AdminConfig";
 import AdminDocuments from "./pages/AdminDocuments";
 import AdminCredit from "./pages/AdminCredit";
 import AdminProducts from "./pages/AdminProducts";
+import AdminPayments from "./pages/AdminPayments";
 import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/admin/documentos" element={<AdminDocuments />} />
           <Route path="/admin/credito" element={<AdminCredit />} />
           <Route path="/admin/produtos" element={<AdminProducts />} />
+          <Route path="/admin/pagamentos" element={<AdminPayments />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -56,21 +56,14 @@ export default function AdminContracts() {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      const demo: ContractRow[] = [
-        { id: "#C-1021", cliente: "Maria Silva", produto: "iPhone 15 Pro", plano: "24m", valor_mensal: "R$289", status: "Ativo", user_id: null },
-        { id: "#C-1019", cliente: "João Santos", produto: "MacBook Air M3", plano: "36m", valor_mensal: "R$449", status: "Pendente", user_id: null },
-        { id: "#C-1015", cliente: "Ana Costa", produto: "Apple Watch S9", plano: "12m", valor_mensal: "R$149", status: "Encerrado", user_id: null },
-      ];
       try {
         const { data, error } = await supabase
           .from("contracts")
           .select("id, cliente, produto, plano, valor_mensal, status, user_id")
           .limit(50);
-        if (error || !data) {
-          setRows(demo);
-        } else {
+        if (!error) {
           setRows(
-            data.map((d: any) => ({
+            (data || []).map((d: any) => ({
               id: d.id || "",
               cliente: d.cliente || "",
               produto: d.produto || "",

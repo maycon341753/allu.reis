@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -21,6 +23,29 @@ const menuItems = [
 
 export default function AdminDashboard() {
   const location = useLocation();
+  const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
+  useEffect(() => {
+    const run = async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("cliente, produto, plano, status")
+        .order("id", { descending: true })
+        .limit(10);
+      if (!error && data) {
+        setOrders(
+          data.map((d: any) => ({
+            cliente: d.cliente || "",
+            produto: d.produto || "",
+            plano: d.plano || "",
+            status: d.status || "",
+          })),
+        );
+      } else {
+        setOrders([]);
+      }
+    };
+    run();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -67,17 +92,10 @@ export default function AdminDashboard() {
 
         {/* Stats */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: "Clientes ativos", value: "1.247" },
-            { label: "Contratos ativos", value: "2.089" },
-            { label: "Receita mensal", value: "R$623K" },
-            { label: "Análises pendentes", value: "14" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className="mt-1 font-display text-2xl font-bold">{stat.value}</p>
-            </div>
-          ))}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Sem dados</p>
+            <p className="mt-1 font-display text-2xl font-bold">—</p>
+          </div>
         </div>
 
         {/* Recent orders */}
@@ -94,12 +112,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { cliente: "Maria Silva", produto: "iPhone 15 Pro", plano: "24m", status: "Ativo" },
-                  { cliente: "João Santos", produto: "MacBook Air M3", plano: "36m", status: "Pendente" },
-                  { cliente: "Ana Costa", produto: "Apple Watch S9", plano: "12m", status: "Em análise" },
-                  { cliente: "Pedro Lima", produto: "iPad Pro M2", plano: "24m", status: "Ativo" },
-                ].map((order, i) => (
+                {orders.map((order, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 font-medium">{order.cliente}</td>
                     <td className="px-4 py-3 text-muted-foreground">{order.produto}</td>
@@ -115,6 +128,13 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ))}
+                {orders.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={4}>
+                      Nenhum pedido encontrado
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

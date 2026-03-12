@@ -41,21 +41,14 @@ export default function AdminOrders() {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      const demo: OrderRow[] = [
-        { id: "#P-2041", cliente: "Maria Silva", produto: "iPhone 15 Pro", plano: "24m", status: "Aprovado" },
-        { id: "#P-2039", cliente: "João Santos", produto: "MacBook Air M3", plano: "36m", status: "Em análise" },
-        { id: "#P-2035", cliente: "Ana Costa", produto: "Apple Watch S9", plano: "12m", status: "Rejeitado" },
-      ];
       try {
         const { data, error } = await supabase
           .from("orders")
           .select("id, cliente, produto, plano, status")
           .limit(50);
-        if (error || !data) {
-          setRows(demo);
-        } else {
+        if (!error) {
           setRows(
-            data.map((d: any) => ({
+            (data || []).map((d: any) => ({
               id: d.id || "",
               cliente: d.cliente || "",
               produto: d.produto || "",

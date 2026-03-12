@@ -76,21 +76,14 @@ export default function AdminProducts() {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      const demo: ProductRow[] = [
-        { id: "#PR-1001", nome: "iPhone 15 Pro 128GB", categoria: "Celular", preco_mensal: "R$289,00", estoque: 12, status: "Ativo" },
-        { id: "#PR-1002", nome: "MacBook Air M3 8/256", categoria: "Notebook", preco_mensal: "R$449,00", estoque: 5, status: "Ativo" },
-        { id: "#PR-1003", nome: "Apple Watch Series 9", categoria: "Wearable", preco_mensal: "R$149,00", estoque: 0, status: "Indisponível" },
-      ];
       try {
         const { data, error } = await supabase
           .from("products")
           .select("id, nome, categoria, preco_mensal, estoque, status, image_url")
           .limit(100);
-        if (error || !data) {
-          setRows(demo);
-        } else {
+        if (!error) {
           setRows(
-            data.map((d: any) => ({
+            (data || []).map((d: any) => ({
               id: d.id || "",
               nome: d.nome || "",
               categoria: d.categoria || "",

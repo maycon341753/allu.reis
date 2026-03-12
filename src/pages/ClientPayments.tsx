@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut } from "lucide-react";
 
 const menuItems = [
@@ -12,6 +14,25 @@ const menuItems = [
 
 export default function ClientPayments() {
   const location = useLocation();
+  const [rows, setRows] = useState<Array<{ data: string; produto: string; valor: string; status: string }>>([]);
+  useEffect(() => {
+    const run = async () => {
+      const { data, error } = await supabase.from("payments").select("vencimento, produto, valor, status").order("vencimento", { descending: true }).limit(20);
+      if (!error && data) {
+        setRows(
+          data.map((d: any) => ({
+            data: d.vencimento || "",
+            produto: d.produto || "",
+            valor: d.valor != null ? String(d.valor) : "",
+            status: d.status || "",
+          })),
+        );
+      } else {
+        setRows([]);
+      }
+    };
+    run();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -53,16 +74,10 @@ export default function ClientPayments() {
         <p className="mt-1 text-muted-foreground">Veja cobranças, status e recibos.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {[
-            { label: "Próxima cobrança", value: "R$289 em 12/04", color: "text-foreground" },
-            { label: "Pagamentos em dia", value: "✓", color: "text-primary" },
-            { label: "Total faturado no mês", value: "R$438", color: "text-foreground" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className={`mt-1 font-display text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </div>
-          ))}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Resumo</p>
+            <p className="mt-1 font-display text-2xl font-bold">—</p>
+          </div>
         </div>
 
         <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
@@ -77,11 +92,7 @@ export default function ClientPayments() {
               </tr>
             </thead>
             <tbody>
-              {[
-                { data: "12/03", produto: "iPhone 15 Pro", valor: "R$289,00", status: "Pago" },
-                { data: "12/02", produto: "Apple Watch S9", valor: "R$149,00", status: "Pago" },
-                { data: "12/01", produto: "iPhone 15 Pro", valor: "R$289,00", status: "Pago" },
-              ].map((row, i) => (
+              {rows.map((row, i) => (
                 <tr key={i} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">{row.data}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
@@ -98,6 +109,13 @@ export default function ClientPayments() {
                   </td>
                 </tr>
               ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
+                    Nenhum pagamento encontrado
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

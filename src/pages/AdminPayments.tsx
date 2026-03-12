@@ -23,20 +23,20 @@ const menuItems = [
   { icon: Settings, label: "Configurações", path: "/admin/config" },
 ];
 
-type DocRow = {
+type PaymentRow = {
   id: string;
-  user_id: string | null;
-  nome: string;
-  tipo: string;
-  status: "Pendente" | "Aprovado" | "Rejeitado";
-  url?: string | null;
-  atualizado_em?: string | null;
+  cliente: string;
+  contrato_id?: string | null;
+  produto: string;
+  valor: string;
+  vencimento: string;
+  status: "Pago" | "Em atraso" | "Pendente";
 };
 
-export default function AdminDocuments() {
+export default function AdminPayments() {
   const location = useLocation();
   const { toast } = useToast();
-  const [rows, setRows] = useState<DocRow[]>([]);
+  const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -44,19 +44,19 @@ export default function AdminDocuments() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from("documents")
-          .select("id, user_id, nome, tipo, status, url, updated_at")
-          .limit(50);
+          .from("payments")
+          .select("id, cliente, contrato_id, produto, valor, vencimento, status")
+          .limit(100);
         if (!error) {
           setRows(
             (data || []).map((d: any) => ({
               id: d.id || "",
-              user_id: d.user_id ?? null,
-              nome: d.nome || "",
-              tipo: d.tipo || "",
-              status: (d.status as DocRow["status"]) || "Pendente",
-              url: d.url ?? null,
-              atualizado_em: d.updated_at || null,
+              cliente: d.cliente || "",
+              contrato_id: d.contrato_id ?? null,
+              produto: d.produto || "",
+              valor: d.valor != null ? String(d.valor) : "",
+              vencimento: d.vencimento || "",
+              status: (d.status as PaymentRow["status"]) || "Pendente",
             }))
           );
         }
@@ -67,24 +67,20 @@ export default function AdminDocuments() {
     run();
   }, []);
 
-  const updateStatus = async (row: DocRow, status: DocRow["status"]) => {
+  const marcarPago = async (row: PaymentRow) => {
     const prev = rows.slice();
-    setRows((r) => r.map((x) => (x.id === row.id ? { ...x, status } : x)));
-    const { error } = await supabase.from("documents").update({ status }).eq("id", row.id);
+    setRows((r) => r.map((x) => (x.id === row.id ? { ...x, status: "Pago" } : x)));
+    const { error } = await supabase.from("payments").update({ status: "Pago" }).eq("id", row.id);
     if (error) {
       setRows(prev);
       toast({ title: "Não foi possível atualizar", description: error.message });
     } else {
-      toast({ title: "Status atualizado" });
+      toast({ title: "Pagamento marcado como pago" });
     }
   };
 
-  const openUrl = (url?: string | null) => {
-    if (!url) {
-      toast({ title: "Sem arquivo", description: "Este documento não possui URL vinculada" });
-      return;
-    }
-    window.open(url, "_blank");
+  const cobrar = async (row: PaymentRow) => {
+    toast({ title: "Cobrança enviada", description: `Cliente: ${row.cliente}` });
   };
 
   return (
@@ -125,8 +121,8 @@ export default function AdminDocuments() {
       <main className="flex-1 p-6 md:p-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold">Documentos</h1>
-            <p className="mt-1 text-muted-foreground">Revise e aprove documentos dos clientes</p>
+            <h1 className="font-display text-2xl font-bold">Pagamentos</h1>
+            <p className="mt-1 text-muted-foreground">Gerencie cobranças e status</p>
           </div>
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
@@ -137,9 +133,11 @@ export default function AdminDocuments() {
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Contrato</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Valor</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vencimento</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Atualizado</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ações</th>
               </tr>
             </thead>
@@ -147,33 +145,34 @@ export default function AdminDocuments() {
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">{row.id}</td>
-                  <td className="px-4 py-3">{row.nome}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.tipo}</td>
+                  <td className="px-4 py-3">{row.cliente}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.contrato_id || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
+                  <td className="px-4 py-3">{row.valor}</td>
+                  <td className="px-4 py-3">{row.vencimento}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      row.status === "Aprovado"
+                      row.status === "Pago"
                         ? "bg-primary/10 text-primary"
-                        : row.status === "Pendente"
-                        ? "bg-yellow-500/10 text-yellow-600"
-                        : "bg-secondary text-foreground"
+                        : row.status === "Em atraso"
+                        ? "bg-red-500/10 text-red-600"
+                        : "bg-yellow-500/10 text-yellow-600"
                     }`}>
                       {row.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.atualizado_em || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)}>Ver</Button>
-                      <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+                      <Button variant="success" size="sm" onClick={() => marcarPago(row)}>Marcar pago</Button>
+                      <Button variant="outline" size="sm" onClick={() => cobrar(row)}>Cobrar</Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>
-                    {loading ? "Carregando..." : "Nenhum documento encontrado"}
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={8}>
+                    {loading ? "Carregando..." : "Nenhum pagamento encontrado"}
                   </td>
                 </tr>
               )}
