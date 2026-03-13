@@ -33,6 +33,13 @@ export default function ClientProfile() {
   const [cpf, setCpf] = useState("");
   const [loading, setLoading] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
+  const [addrEntrega, setAddrEntrega] = useState("");
+  const [addrResidencial, setAddrResidencial] = useState("");
+  const [addrCEP, setAddrCEP] = useState("");
+  const [addrComp, setAddrComp] = useState("");
+  const [addrBairro, setAddrBairro] = useState("");
+  const [addrCidade, setAddrCidade] = useState("");
+  const [addrEstado, setAddrEstado] = useState("");
 
   useEffect(() => {
     const run = async () => {
@@ -49,7 +56,28 @@ export default function ClientProfile() {
       if (profile) {
         setFullName(profile.full_name || "");
         setPhone(profile.phone || "");
-        setCpf(formatCpf(String(profile.cpf || "")));
+        const cpfDigits = String(profile.cpf || "");
+        setCpf(formatCpf(cpfDigits));
+        // Buscar último endereço usado (pagamentos) pelo CPF
+        const cpfClean = cpfDigits.replace(/\D/g, "");
+        if (cpfClean) {
+          const { data: pay } = await supabase
+            .from("payments")
+            .select("entrega_endereco, residencial_endereco, cep, complemento, bairro, cidade, estado, id")
+            .eq("cliente_cpf", cpfClean)
+            .order("id", { descending: true })
+            .limit(1);
+          const a = Array.isArray(pay) && pay.length ? pay[0] : null;
+          if (a) {
+            setAddrEntrega(a.entrega_endereco || "");
+            setAddrResidencial(a.residencial_endereco || "");
+            setAddrCEP(a.cep || "");
+            setAddrComp(a.complemento || "");
+            setAddrBairro(a.bairro || "");
+            setAddrCidade(a.cidade || "");
+            setAddrEstado(a.estado || "");
+          }
+        }
       }
     };
     run();
@@ -119,7 +147,7 @@ export default function ClientProfile() {
       <main className="flex-1 p-6 md:p-8">
         <h1 className="font-display text-2xl font-bold">Perfil</h1>
         <p className="mt-1 text-muted-foreground">
-          Seus dados pessoais estão bloqueados para edição. Para alterar, acesse{" "}
+          Seus dados pessoais e endereço estão bloqueados para edição. Para alterar, acesse{" "}
           <Link to="/cliente/suporte" className="text-primary underline hover:text-primary/80">Suporte</Link>{" "}
           e abra um chamado.
         </p>
@@ -157,6 +185,51 @@ export default function ClientProfile() {
             <Button asChild variant="outline">
               <Link to="/cliente/suporte">Solicitar alteração via Suporte</Link>
             </Button>
+          </div>
+          <div className="sm:col-span-2 pt-2">
+            <h2 className="font-display text-lg font-semibold">Endereço</h2>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="addr_res">Endereço residencial</Label>
+            <div className="relative mt-1">
+              <Input id="addr_res" value={addrResidencial} readOnly disabled placeholder="Endereço residencial" />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="addr_ent">Endereço de entrega</Label>
+            <div className="relative mt-1">
+              <Input id="addr_ent" value={addrEntrega} readOnly disabled placeholder="Endereço de entrega" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="addr_cep">CEP</Label>
+            <div className="relative mt-1">
+              <Input id="addr_cep" value={addrCEP} readOnly disabled placeholder="00000-000" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="addr_comp">Complemento</Label>
+            <div className="relative mt-1">
+              <Input id="addr_comp" value={addrComp} readOnly disabled placeholder="Complemento" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="addr_bairro">Bairro</Label>
+            <div className="relative mt-1">
+              <Input id="addr_bairro" value={addrBairro} readOnly disabled placeholder="Bairro" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="addr_cidade">Cidade</Label>
+            <div className="relative mt-1">
+              <Input id="addr_cidade" value={addrCidade} readOnly disabled placeholder="Cidade" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="addr_estado">Estado</Label>
+            <div className="relative mt-1">
+              <Input id="addr_estado" value={addrEstado} readOnly disabled placeholder="UF" />
+            </div>
           </div>
         </form>
       </main>
