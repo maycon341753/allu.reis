@@ -6,6 +6,7 @@ import {
   BarChart3, Settings, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
@@ -39,17 +40,78 @@ export default function AdminPayments() {
   const { toast } = useToast();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [subs, setSubs] = useState<
+    Array<{ id: string; cliente: string; produto: string; plano: string; valor: string; created_at: string | null }>
+  >([]);
+  const [paidMap, setPaidMap] = useState<Record<string, number>>({});
+  // Filtros - Assinaturas
+  const [sCliente, setSCliente] = useState("");
+  const [sProduto, setSProduto] = useState("");
+  const [sPlano, setSPlano] = useState("");
+  // Filtros - Pagamentos
+  const [qCliente, setQCliente] = useState("");
+  const [qStatus, setQStatus] = useState("");
+  const [qMetodo, setQMetodo] = useState("");
+  const [qProduto, setQProduto] = useState("");
+  const [qVenc, setQVenc] = useState("");
   const formatBRL = (v: any) => {
     if (v == null) return "—";
     const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
     if (isNaN(n)) return String(v);
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
   };
+  const monthsFromPlano = (p: string) => {
+    const m = parseInt(String(p).replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(m) && m > 0 ? m : 12;
+  };
+  const addMonths = (iso: string | null, n: number) => {
+    const base = iso ? new Date(iso) : new Date();
+    const d = new Date(base.getTime());
+    d.setMonth(d.getMonth() + n);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
 
   useEffect(() => {
     const run = async () => {
       setLoading(true);
       try {
+        // Assinaturas aprovadas (contratos ativos/aprovados)
+        const { data: contratos } = await supabase
+          .from("contratos")
+          .select("id, cliente, produto, plano, valor, status, created_at")
+          .in("status", ["Ativo", "Aprovado"])
+          .order("id", { descending: true })
+          .limit(200);
+        const subRows =
+          (contratos || []).map((c: any) => ({
+            id: String(c.id),
+            cliente: c.cliente || "",
+            produto: c.produto || "",
+            plano: c.plano || "",
+            valor: c.valor != null ? String(c.valor) : "",
+            created_at: c.created_at || null,
+          })) ?? [];
+        setSubs(subRows);
+        if (subRows.length) {
+          const ids = subRows.map((s) => Number(s.id)).filter((x) => Number.isFinite(x));
+          const { data: pays } = await supabase
+            .from("payments")
+            .select("id, contrato_id, status")
+            .in("contrato_id", ids);
+          const map: Record<string, number> = {};
+          (pays || []).forEach((p: any) => {
+            const key = String(p.contrato_id);
+            if (!map[key]) map[key] = 0;
+            if ((p.status || "").toLowerCase() === "pago") map[key] += 1;
+          });
+          setPaidMap(map);
+        } else {
+          setPaidMap({});
+        }
+
         const { data, error } = await supabase
           .from("payments")
           .select("id, cliente, contrato_id, produto, valor, vencimento, status")
@@ -88,6 +150,31 @@ export default function AdminPayments() {
 
   const cobrar = async (row: PaymentRow) => {
     toast({ title: "Cobrança enviada", description: `Cliente: ${row.cliente}` });
+  };
+
+  const marcarParcelaPaga = async (sub: { id: string; cliente: string; produto: string; valor: string; plano: string; created_at: string | null }) => {
+    const total = monthsFromPlano(sub.plano);
+    const pagos = paidMap[sub.id] || 0;
+    if (pagos >= total) {
+      toast({ title: "Todas as parcelas já foram pagas" });
+      return;
+    }
+    const proximoVenc = addMonths(sub.created_at, pagos + 1);
+    const { error } = await supabase.from("payments").insert({
+      cliente: sub.cliente,
+      contrato_id: Number(sub.id),
+      produto: sub.produto,
+      valor: sub.valor,
+      vencimento: proximoVenc,
+      status: "Pago",
+      metodo: "manual",
+    });
+    if (error) {
+      toast({ title: "Erro ao registrar parcela", description: error.message });
+      return;
+    }
+    setPaidMap((m) => ({ ...m, [sub.id]: (m[sub.id] || 0) + 1 }));
+    toast({ title: "Parcela registrada como paga" });
   };
 
   return (
@@ -137,6 +224,78 @@ export default function AdminPayments() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
+        {/* Filtros - Assinaturas aprovadas */}
+        <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <Input placeholder="Buscar cliente (assinaturas)" value={sCliente} onChange={(e) => setSCliente(e.target.value)} />
+          <Input placeholder="Produto (assinaturas)" value={sProduto} onChange={(e) => setSProduto(e.target.value)} />
+          <Input placeholder="Plano (ex.: 12m)" value={sPlano} onChange={(e) => setSPlano(e.target.value)} />
+        </div>
+
+        {/* Assinaturas aprovadas */}
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
+          <table className="min-w-[720px] w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/50">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Plano</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Valor mensal</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Pagas/Total</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Próximo venc.</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subs
+                .filter((s) => {
+                  const cOk = !sCliente || s.cliente.toLowerCase().includes(sCliente.toLowerCase());
+                  const pOk = !sProduto || s.produto.toLowerCase().includes(sProduto.toLowerCase());
+                  const plOk = !sPlano || s.plano.toLowerCase().includes(sPlano.toLowerCase());
+                  return cOk && pOk && plOk;
+                })
+                .map((s) => {
+                const total = monthsFromPlano(s.plano);
+                const pagos = paidMap[s.id] || 0;
+                const proximo = pagos < total ? addMonths(s.created_at, pagos + 1) : "—";
+                return (
+                  <tr key={s.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3">{s.cliente}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.produto}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.plano}</td>
+                    <td className="px-4 py-3">{formatBRL(s.valor)}</td>
+                    <td className="px-4 py-3">{pagos}/{total}</td>
+                    <td className="px-4 py-3">{proximo}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="success" onClick={() => marcarParcelaPaga(s)} disabled={pagos >= total}>
+                          Marcar parcela paga
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {subs.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={7}>
+                    Nenhuma assinatura aprovada encontrada
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Filtros - Pagamentos individuais */}
+        <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-5">
+          <Input placeholder="Cliente" value={qCliente} onChange={(e) => setQCliente(e.target.value)} />
+          <Input placeholder="Status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
+          <Input placeholder="Método" value={qMetodo} onChange={(e) => setQMetodo(e.target.value)} />
+          <Input placeholder="Produto" value={qProduto} onChange={(e) => setQProduto(e.target.value)} />
+          <Input placeholder="Vencimento (aaaa-mm ou data)" value={qVenc} onChange={(e) => setQVenc(e.target.value)} />
+        </div>
+
+        {/* Tabela de pagamentos individuais */}
         <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[720px] w-full text-sm">
             <thead>
@@ -151,7 +310,16 @@ export default function AdminPayments() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows
+                .filter((r) => {
+                  const cOk = !qCliente || r.cliente.toLowerCase().includes(qCliente.toLowerCase());
+                  const sOk = !qStatus || r.status.toLowerCase().includes(qStatus.toLowerCase());
+                  const mOk = !qMetodo || (("" as string) + (r as any).metodo ?? "").toLowerCase().includes(qMetodo.toLowerCase());
+                  const pOk = !qProduto || r.produto.toLowerCase().includes(qProduto.toLowerCase());
+                  const vOk = !qVenc || (r.vencimento || "").toLowerCase().includes(qVenc.toLowerCase());
+                  return cOk && sOk && mOk && pOk && vOk;
+                })
+                .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">{row.cliente}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.contrato_id || "—"}</td>
