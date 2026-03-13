@@ -79,17 +79,37 @@ export default function AdminProducts() {
     return () => URL.revokeObjectURL(url);
   }, [pFile]);
 
+  const toNumberFromBR = (v: string) => {
+    const cleaned = v.replace(/\u00A0/g, " ").replace(/R\$/g, "").replace(/\s+/g, "");
+    const simpleDecimal = cleaned.match(/^\d+(\.\d+)?$/);
+    if (simpleDecimal) {
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    }
+    const s = cleaned
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "");
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+  const normalizeTyping = (v: string) => {
+    const only = v.replace(/[^\d,]/g, "");
+    const parts = only.split(",");
+    if (parts.length <= 1) return only;
+    return parts[0] + "," + parts.slice(1).join("").replace(/,/g, "");
+  };
   const formatBRL = (v: string) => {
-    const digits = v.replace(/\D/g, "");
-    if (!digits) return "";
-    const num = Number(digits) / 100;
-    return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const n = toNumberFromBR(v);
+    if (n == null) return "";
+    if (n === 0) return "";
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
   };
 
   const parseBRL = (v: string) => {
-    const digits = v.replace(/\D/g, "");
-    if (!digits) return 0;
-    return Number(digits) / 100;
+    const n = toNumberFromBR(v);
+    if (n == null) return 0;
+    return Math.round(n * 100) / 100;
   };
 
   const openEdit = (row: ProductRow) => {
@@ -360,7 +380,7 @@ export default function AdminProducts() {
                         <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Smartwhats">Smartwhats</SelectItem>
+                        <SelectItem value="Smartwatch">Smartwatch</SelectItem>
                         <SelectItem value="Celular">Celular</SelectItem>
                         <SelectItem value="Iphone">Iphone</SelectItem>
                         <SelectItem value="Tablets">Tablets</SelectItem>
@@ -373,7 +393,23 @@ export default function AdminProducts() {
                     <Input
                       id="np_mensal"
                       value={pMensal}
-                      onChange={(e) => setPMensal(formatBRL(e.target.value))}
+                      onChange={(e) => setPMensal(normalizeTyping(e.target.value))}
+                      onFocus={(e) => {
+                        const n = toNumberFromBR(e.target.value);
+                        if (n != null) {
+                          if (n === 0) setPMensal("");
+                          else setPMensal(n.toFixed(2).replace(".", ","));
+                        }
+                        setTimeout(() => {
+                          try {
+                            (e.target as HTMLInputElement).select();
+                          } catch {}
+                        }, 0);
+                      }}
+                      onBlur={() => {
+                        if (!pMensal.trim()) setPMensal("");
+                        else setPMensal(formatBRL(pMensal));
+                      }}
                       placeholder="R$ 0,00"
                       className="mt-1"
                     />
@@ -605,7 +641,7 @@ export default function AdminProducts() {
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Smartwhats">Smartwhats</SelectItem>
+                  <SelectItem value="Smartwatch">Smartwatch</SelectItem>
                   <SelectItem value="Celular">Celular</SelectItem>
                   <SelectItem value="Iphone">Iphone</SelectItem>
                   <SelectItem value="Tablets">Tablets</SelectItem>
@@ -615,7 +651,29 @@ export default function AdminProducts() {
             </div>
             <div>
               <Label htmlFor="ep_mensal">Mensal (R$)</Label>
-              <Input id="ep_mensal" value={eMensal} onChange={(e) => setEMensal(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" />
+              <Input
+                id="ep_mensal"
+                value={eMensal}
+                onChange={(e) => setEMensal(normalizeTyping(e.target.value))}
+                onFocus={(e) => {
+                  const n = toNumberFromBR(e.target.value);
+                  if (n != null) {
+                    if (n === 0) setEMensal("");
+                    else setEMensal(n.toFixed(2).replace(".", ","));
+                  }
+                  setTimeout(() => {
+                    try {
+                      (e.target as HTMLInputElement).select();
+                    } catch {}
+                  }, 0);
+                }}
+                onBlur={() => {
+                  if (!eMensal.trim()) setEMensal("");
+                  else setEMensal(formatBRL(eMensal));
+                }}
+                placeholder="R$ 0,00"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label htmlFor="ep_estoque">Estoque</Label>

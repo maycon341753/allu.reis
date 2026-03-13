@@ -22,11 +22,15 @@ export default function Checkout() {
   const [nascimento, setNascimento] = useState("");
   const [cupom, setCupom] = useState("");
   const [armazenamento, setArmazenamento] = useState<string>("");
-  const [planDiscounts, setPlanDiscounts] = useState<{ 12: number; 24: number; 36: number }>({ 12: 0, 24: 60, 36: 100 });
+  const [planPrices, setPlanPrices] = useState<{ 12: number | null; 24: number | null; 36: number | null }>({
+    12: null,
+    24: null,
+    36: null,
+  });
   const precoBase = product?.preco_mensal ?? 0;
-  const descontoCupom = cupom === "CUPOM10" ? Math.round(precoBase * 0.1 * 100) / 100 : 0;
-  const descontoPlano = planDiscounts[selectedPlan] ?? 0;
-  const precoAjustado = Math.max(0, Math.round((precoBase - descontoPlano) * 100) / 100);
+  const precoPlano = (planPrices[selectedPlan] ?? precoBase) || 0;
+  const descontoCupom = cupom === "CUPOM10" ? Math.round(precoPlano * 0.1 * 100) / 100 : 0;
+  const precoAjustado = Math.max(0, Math.round((precoPlano - descontoCupom) * 100) / 100);
   const total = Math.max(0, Math.round((precoAjustado - descontoCupom) * 100) / 100);
   const formatBRL = (v: any) => {
     if (v == null) return "—";
@@ -104,35 +108,28 @@ export default function Checkout() {
         .eq("product_id", id);
       const arm = (specs || []).find((s: any) => String(s.spec_name).toLowerCase() === "armazenamento");
       setArmazenamento(arm?.spec_value || "");
-      // Definir descontos com base nos preços configurados no Admin (products.preco12/24/36)
-      const next = { 12: 0, 24: 0, 36: 0 } as { 12: number; 24: number; 36: number };
-      const base = Number(baseMonthly ?? 0);
-      const p12 = Number(data?.preco12 ?? NaN);
-      const p24 = Number(data?.preco24 ?? NaN);
-      const p36 = Number(data?.preco36 ?? NaN);
-      if (isFinite(base)) {
-        if (isFinite(p12)) next[12] = Math.max(0, Math.round((base - p12) * 100) / 100);
-        if (isFinite(p24)) next[24] = Math.max(0, Math.round((base - p24) * 100) / 100);
-        if (isFinite(p36)) next[36] = Math.max(0, Math.round((base - p36) * 100) / 100);
+      // Definir preços por plano com base em products.preco12/24/36
+      let prices: { 12: number | null; 24: number | null; 36: number | null } = {
+        12: isFinite(Number(data?.preco12)) ? Number(data?.preco12) : null,
+        24: isFinite(Number(data?.preco24)) ? Number(data?.preco24) : null,
+        36: isFinite(Number(data?.preco36)) ? Number(data?.preco36) : null,
+      };
+      // Fallback: completar com valores de product_pricing (monthly_price) quando ausentes
+      const { data: aux } = await supabase
+        .from("product_pricing")
+        .select("months, monthly_price")
+        .eq("product_id", id);
+      if (aux && Array.isArray(aux)) {
+        aux.forEach((p: any) => {
+          const m = Number(p.months);
+          const mp = Number(p.monthly_price ?? NaN);
+          if ((m === 12 || m === 24 || m === 36) && isFinite(mp) && prices[m as 12 | 24 | 36] == null) {
+            // @ts-ignore
+            prices[m] = mp;
+          }
+        });
       }
-      // Fallback: se não houver preços no products, tentar derivar via product_pricing (monthly_price)
-      if (next[12] === 0 && next[24] === 0 && next[36] === 0) {
-        const { data: aux } = await supabase
-          .from("product_pricing")
-          .select("months, monthly_price")
-          .eq("product_id", id);
-        if (aux && base) {
-          aux.forEach((p: any) => {
-            const m = Number(p.months);
-            const mp = Number(p.monthly_price ?? NaN);
-            if ((m === 12 || m === 24 || m === 36) && isFinite(mp)) {
-              // @ts-ignore
-              next[m] = Math.max(0, Math.round((base - mp) * 100) / 100);
-            }
-          });
-        }
-      }
-      setPlanDiscounts(next);
+      setPlanPrices(prices);
     };
     run();
   }, [id]);
@@ -198,7 +195,9 @@ export default function Checkout() {
                         }`}
                       >
                         <span className="block text-sm">{m} meses</span>
-                        <span className="block text-xs text-green-600">−{formatBRL(planDiscounts[m as 12 | 24 | 36])}/mês</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {planPrices[m as 12 | 24 | 36] != null ? `${formatBRL(planPrices[m as 12 | 24 | 36])}/mês` : "—"}
+                        </span>
                       </button>
                     ))}
                   </div>

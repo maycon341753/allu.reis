@@ -128,16 +128,36 @@ export default function AdminProductDetail() {
     run();
   }, [id]);
 
+  const toNumberFromBR = (v: string) => {
+    const cleaned = v.replace(/\u00A0/g, " ").replace(/R\$/g, "").replace(/\s+/g, "");
+    const simpleDecimal = cleaned.match(/^\d+(\.\d+)?$/);
+    if (simpleDecimal) {
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    }
+    const s = cleaned
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "");
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+  const normalizeTyping = (v: string) => {
+    const only = v.replace(/[^\d,]/g, "");
+    const parts = only.split(",");
+    if (parts.length <= 1) return only;
+    return parts[0] + "," + parts.slice(1).join("").replace(/,/g, "");
+  };
   const formatBRL = (v: string) => {
-    const digits = v.replace(/\D/g, "");
-    if (!digits) return "";
-    const num = Number(digits) / 100;
-    return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const n = toNumberFromBR(v);
+    if (n == null) return "";
+    if (n === 0) return "";
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
   };
   const parseBRL = (v: string) => {
-    const digits = v.replace(/\D/g, "");
-    if (!digits) return null;
-    return Number(digits) / 100;
+    const n = toNumberFromBR(v);
+    if (n == null) return null;
+    return Math.round(n * 100) / 100;
   };
   const fmtDate = (s?: string | null) => {
     if (!s) return "—";
@@ -184,6 +204,17 @@ export default function AdminProductDetail() {
     } else {
       toast({ title: "Preços atualizados" });
       await logAction("Atualização", "Preços");
+      const { data: prod } = await supabase
+        .from("products")
+        .select("preco12, preco24, preco36, preco_mensal")
+        .eq("id", id)
+        .maybeSingle();
+      if (prod) {
+        setPreco12(formatBRL(String(prod.preco12 ?? "")));
+        setPreco24(formatBRL(String(prod.preco24 ?? "")));
+        setPreco36(formatBRL(String(prod.preco36 ?? "")));
+        setPrecoMensal(formatBRL(String(prod.preco_mensal ?? "")));
+      }
     }
   };
   const saveStock = async () => {
@@ -404,10 +435,106 @@ export default function AdminProductDetail() {
           <div className="rounded-xl border border-border bg-card p-5">
             <p className="text-sm text-muted-foreground">Preços de assinatura</p>
             <div className="mt-3 grid gap-3">
-              <div><Label>12 meses</Label><Input value={preco12} onChange={(e) => setPreco12(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" /></div>
-              <div><Label>24 meses</Label><Input value={preco24} onChange={(e) => setPreco24(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" /></div>
-              <div><Label>36 meses</Label><Input value={preco36} onChange={(e) => setPreco36(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" /></div>
-              <div><Label>Mensal padrão</Label><Input value={precoMensal} onChange={(e) => setPrecoMensal(formatBRL(e.target.value))} placeholder="R$ 0,00" className="mt-1" /></div>
+              <div>
+                <Label>12 meses</Label>
+                <Input
+                  value={preco12}
+                  onChange={(e) => setPreco12(normalizeTyping(e.target.value))}
+                  onFocus={(e) => {
+                    const n = toNumberFromBR(e.target.value);
+                    if (n != null) {
+                      if (n === 0) setPreco12("");
+                      else setPreco12(n.toFixed(2).replace(".", ","));
+                    }
+                    setTimeout(() => {
+                      try {
+                        (e.target as HTMLInputElement).select();
+                      } catch {}
+                    }, 0);
+                  }}
+                  onBlur={() => {
+                    if (!preco12.trim()) setPreco12("");
+                    else setPreco12(formatBRL(preco12));
+                  }}
+                  placeholder="R$ 0,00"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>24 meses</Label>
+                <Input
+                  value={preco24}
+                  onChange={(e) => setPreco24(normalizeTyping(e.target.value))}
+                  onFocus={(e) => {
+                    const n = toNumberFromBR(e.target.value);
+                    if (n != null) {
+                      if (n === 0) setPreco24("");
+                      else setPreco24(n.toFixed(2).replace(".", ","));
+                    }
+                    setTimeout(() => {
+                      try {
+                        (e.target as HTMLInputElement).select();
+                      } catch {}
+                    }, 0);
+                  }}
+                  onBlur={() => {
+                    if (!preco24.trim()) setPreco24("");
+                    else setPreco24(formatBRL(preco24));
+                  }}
+                  placeholder="R$ 0,00"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>36 meses</Label>
+                <Input
+                  value={preco36}
+                  onChange={(e) => setPreco36(normalizeTyping(e.target.value))}
+                  onFocus={(e) => {
+                    const n = toNumberFromBR(e.target.value);
+                    if (n != null) {
+                      if (n === 0) setPreco36("");
+                      else setPreco36(n.toFixed(2).replace(".", ","));
+                    }
+                    setTimeout(() => {
+                      try {
+                        (e.target as HTMLInputElement).select();
+                      } catch {}
+                    }, 0);
+                  }}
+                  onBlur={() => {
+                    if (!preco36.trim()) setPreco36("");
+                    else setPreco36(formatBRL(preco36));
+                  }}
+                  placeholder="R$ 0,00"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Mensal padrão</Label>
+                <Input
+                  value={precoMensal}
+                  onChange={(e) => setPrecoMensal(normalizeTyping(e.target.value))}
+                  onFocus={(e) => {
+                    const n = toNumberFromBR(e.target.value);
+                    if (n != null) {
+                      if (n === 0) setPrecoMensal("");
+                      else setPrecoMensal(n.toFixed(2).replace(".", ","));
+                    }
+                    setTimeout(() => {
+                      try {
+                        (e.target as HTMLInputElement).select();
+                      } catch {}
+                    }, 0);
+                  }}
+                  onBlur={() => {
+                    if (!precoMensal.trim()) setPrecoMensal("");
+                    else setPrecoMensal(formatBRL(precoMensal));
+                  }}
+                  placeholder="R$ 0,00"
+                  className="mt-1"
+                />
+              </div>
               <Button className="mt-2" onClick={savePrices}>Salvar preços</Button>
             </div>
           </div>
