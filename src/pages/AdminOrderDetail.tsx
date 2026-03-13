@@ -27,12 +27,33 @@ const menuItems = [
   { icon: Settings, label: "Configurações", path: "/admin/config" },
 ];
 
+interface Order {
+  id: string;
+  cliente: string;
+  email: string;
+  cpf: string;
+  telefone: string;
+  produto: string;
+  plano: string;
+  valor_mensal: string;
+  forma_pagamento: string;
+  status: string;
+  created_at: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+}
+
 export default function AdminOrderDetail() {
   const location = useLocation();
   const { id } = useParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<Order | null>(null);
   const [shipping, setShipping] = useState<{ transportadora?: string; codigo_rastreio?: string; status?: string } | null>(null);
   const [history, setHistory] = useState<Array<{ id: string; status: string; observacao?: string; created_at: string }>>([]);
   const [shipOpen, setShipOpen] = useState(false);
@@ -65,7 +86,7 @@ export default function AdminOrderDetail() {
       try {
         const { data: ord } = await supabase
           .from("orders")
-          .select("id, cliente, email, cpf, telefone, produto, plano, valor_mensal, forma_pagamento, status, created_at")
+          .select("id, cliente, email, cpf, telefone, produto, plano, valor_mensal, forma_pagamento, status, created_at, cep, logradouro, numero, complemento, bairro, cidade, estado")
           .eq("id", id)
           .maybeSingle();
         setOrder(ord || null);
@@ -98,7 +119,7 @@ export default function AdminOrderDetail() {
       return;
     }
     await supabase.from("order_status_history").insert({ order_id: id, status, observacao });
-    setOrder((o: any) => (o ? { ...o, status } : o));
+    setOrder((o) => (o ? { ...o, status } : o));
     setHistory((h) => [{ id: crypto.randomUUID?.() || String(Date.now()), status, observacao, created_at: new Date().toISOString() }, ...h]);
     toast({ title: "Status atualizado" });
   };
@@ -194,6 +215,17 @@ export default function AdminOrderDetail() {
             </div>
             <div className="mt-2">
               <Button variant="outline" onClick={() => setShipOpen(true)}>Marcar como Enviado</Button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Endereço de Entrega</p>
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Logradouro</span><span className="font-medium">{order?.logradouro || "—"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Número</span><span className="font-medium">{order?.numero || "S/N"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Complemento</span><span className="font-medium">{order?.complemento || "—"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Bairro</span><span className="font-medium">{order?.bairro || "—"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Cidade/UF</span><span className="font-medium">{order?.cidade || "—"} / {order?.estado || "—"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">CEP</span><span className="font-medium">{order?.cep || "—"}</span></div>
             </div>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
