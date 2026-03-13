@@ -86,7 +86,7 @@ export default function AdminContracts() {
   const closeContract = async (row: ContractRow) => {
     const prev = rows.slice();
     setRows((r) => r.map((x) => (x.id === row.id ? { ...x, status: "Encerrado" } : x)));
-    const { error } = await supabase.from("contracts").update({ status: "Encerrado" }).eq("id", row.id);
+    const { error } = await supabase.from("contratos").update({ status: "Encerrado" }).eq("id", row.id);
     if (error) {
       setRows(prev);
       toast({ title: "Não foi possível encerrar", description: error.message });
@@ -200,12 +200,12 @@ export default function AdminContracts() {
   };
   const saveContract = async () => {
     const { error } = await supabase
-      .from("contracts")
+      .from("contratos")
       .update({
         cliente: edit.cliente,
         produto: edit.produto,
         plano: edit.plano,
-        valor_mensal: edit.valor_mensal,
+        valor: edit.valor_mensal,
         status: edit.status,
       })
       .eq("id", edit.id);

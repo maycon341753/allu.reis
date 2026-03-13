@@ -250,6 +250,27 @@ export default function CheckoutPayment() {
         billing_type: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
         boleto_url: pdata.point_of_interaction?.transaction_data?.ticket_url || pdata.transaction_details?.external_resource_url || null,
       });
+      // Create admin tracking records
+      try {
+        await supabase.from("orders").insert({
+          cliente: payerName,
+          produto: product.nome,
+          plano: info.plano,
+          forma_pagamento: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
+          status: "Em análise",
+          user_id: uid,
+        });
+      } catch {}
+      try {
+        await supabase.from("contratos").insert({
+          cliente: payerName,
+          produto: product.nome,
+          plano: info.plano,
+          valor: amount,
+          status: "Em análise",
+          user_id: uid,
+        });
+      } catch {}
       setLoading(false);
       
       // Redirect logic for PIX (using ticket_url)
