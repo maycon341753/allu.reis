@@ -15,14 +15,15 @@ export function Footer() {
           </Link>
 
           <nav className="flex flex-wrap justify-center gap-6 text-sm text-surface-dark-foreground/60">
-            <a href="#como-funciona" className="hover:text-primary transition-colors">Como funciona</a>
+            <Link to="/#como-funciona" className="hover:text-primary transition-colors">Como funciona</Link>
             <Link to="/produtos" className="hover:text-primary transition-colors">Produtos</Link>
-            <a href="#" className="hover:text-primary transition-colors">Termos de uso</a>
-            <a href="#" className="hover:text-primary transition-colors">Privacidade</a>
+            <Link to="/termos" className="hover:text-primary transition-colors">Termos de uso</Link>
+            <Link to="/privacidade" className="hover:text-primary transition-colors">Privacidade</Link>
+            <Link to="/lgpd" className="hover:text-primary transition-colors">LGPD</Link>
           </nav>
 
           <p className="text-xs text-surface-dark-foreground/40">
-            © 2026 allu.reis. Todos os direitos reservados.
+            © 2026 allu.reis · CNPJ 39.433.448/0001-34. Todos os direitos reservados.
           </p>
         </div>
       </div>

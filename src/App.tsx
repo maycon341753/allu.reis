@@ -34,6 +34,10 @@ import Checkout from "./pages/Checkout";
 import CheckoutAddress from "./pages/CheckoutAddress";
 import CheckoutPayment from "./pages/CheckoutPayment";
 import BottomNav from "./components/responsive/BottomNav";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import LGPD from "./pages/LGPD";
+import { ScrollToHash } from "./components/ScrollToHash";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +47,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToHash />
         <BottomNav />
         <Routes>
           <Route path="/" element={<Index />} />
@@ -57,6 +62,9 @@ const App = () => (
           <Route path="/cliente/documentos" element={<ClientDocuments />} />
           <Route path="/cliente/suporte" element={<ClientSupport />} />
           <Route path="/cliente/perfil" element={<ClientProfile />} />
+          <Route path="/termos" element={<Terms />} />
+          <Route path="/privacidade" element={<Privacy />} />
+          <Route path="/lgpd" element={<LGPD />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
           <Route path="/admin/usuarios/:id" element={<AdminUserDetail />} />

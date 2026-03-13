@@ -2,6 +2,7 @@ import { Header } from "@/components/landing/Header";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Benefits } from "@/components/landing/Benefits";
+import { Plans } from "@/components/landing/Plans";
 import { Footer } from "@/components/landing/Footer";
 
 const Index = () => {
@@ -10,6 +11,7 @@ const Index = () => {
       <Header />
       <HeroSection />
       <HowItWorks />
+      <Plans />
       <Benefits />
       <Footer />
     </div>

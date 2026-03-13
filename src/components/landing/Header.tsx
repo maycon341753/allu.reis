@@ -5,9 +5,9 @@ import { Menu, X, MapPin, ChevronDown } from "lucide-react";
 
 const navItems = [
   { label: "Home", href: "/" },
-  { label: "Como funciona", href: "#como-funciona" },
+  { label: "Como funciona", href: "/#como-funciona" },
   { label: "Produtos", href: "/produtos" },
-  { label: "Planos", href: "#planos" },
+  { label: "Planos", href: "/#planos" },
 ];
 
 export function Header() {
@@ -28,13 +28,18 @@ export function Header() {
         {/* Desktop nav */}
         <nav className="hidden items-center gap-8 md:flex">
           {navItems.map((item) => (
-            <a
+            <Link
               key={item.label}
-              href={item.href}
+              to={item.href}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => {
+                if (item.href === "/") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -66,14 +71,19 @@ export function Header() {
         <div className="border-t border-border bg-background p-4 md:hidden animate-fade-in">
           <nav className="flex flex-col gap-3">
             {navItems.map((item) => (
-              <a
+              <Link
                 key={item.label}
-                href={item.href}
+                to={item.href}
                 className="text-sm font-medium text-muted-foreground"
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {
+                  setMobileOpen(false);
+                  if (item.href === "/") {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
             <div className="flex gap-2 pt-3 border-t border-border">
               <Button variant="outline" asChild className="flex-1">

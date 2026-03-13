@@ -11,7 +11,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="como-funciona" className="py-20 md:py-28">
+    <section id="como-funciona" className="py-20 md:py-28 scroll-mt-24">
       <div className="container">
         <div className="text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-primary">Simples e rápido</span>
