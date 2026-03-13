@@ -14,51 +14,96 @@ const menuItems = [
 
 export default function ClientPayments() {
   const location = useLocation();
-  const [rows, setRows] = useState<Array<{ data: string; produto: string; valor: string; status: string }>>([]);
+  const [rows, setRows] = useState<Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }>>([]);
   useEffect(() => {
     const run = async () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
-      let cpfDigits = "";
-      if (uid) {
-        const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
-        cpfDigits = String(profile?.cpf || "").replace(/\D/g, "");
-      }
-      const { data, error } = await supabase
-        .from("payments")
-        .select("vencimento, produto, valor, status, cliente_cpf")
-        .eq("cliente_cpf", cpfDigits)
-        .order("vencimento", { descending: true })
-        .limit(20);
-      if (error || !data) {
+      if (!uid) {
         setRows([]);
         return;
       }
-      const fmt = (v: any) => {
-        if (!v) return "";
-        const s = String(v);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-          const [y, m, d] = s.split("-");
-          return `${d}/${m}/${y}`;
+      // Buscar contratos aprovados/ativos do usuário
+      const { data: contratos } = await supabase
+        .from("contratos")
+        .select("id, produto, plano, valor, created_at, status")
+        .eq("user_id", uid)
+        .in("status", ["Ativo", "Aprovado"])
+        .order("created_at", { ascending: true });
+      const subs = (contratos || []).map((c: any) => ({
+        id: Number(c.id),
+        produto: c.produto || "",
+        plano: String(c.plano || "12m"),
+        valor: Number(c.valor ?? 0),
+        created_at: c.created_at as string | null,
+      }));
+      if (!subs.length) {
+        setRows([]);
+        return;
+      }
+      const ids = subs.map((s) => s.id);
+      const { data: pays } = await supabase
+        .from("payments")
+        .select("contrato_id, vencimento, status")
+        .in("contrato_id", ids);
+      const paidMap = new Map<string, boolean>(); // key: contratoId|YYYY-MM-DD
+      (pays || []).forEach((p: any) => {
+        const cid = String(p.contrato_id ?? "");
+        const venc = p.vencimento ? String(p.vencimento).slice(0, 10) : "";
+        const status = String(p.status || "");
+        if (cid && venc && status.toLowerCase() === "pago") {
+          paidMap.set(`${cid}|${venc}`, true);
         }
-        try {
-          const dt = new Date(s);
-          const dd = String(dt.getDate()).padStart(2, "0");
-          const mm = String(dt.getMonth() + 1).padStart(2, "0");
-          const yy = dt.getFullYear();
-          return `${dd}/${mm}/${yy}`;
-        } catch {
-          return s;
-        }
+      });
+      const monthsFromPlano = (p: string) => {
+        const m = parseInt(String(p).replace(/[^\d]/g, ""), 10);
+        return Number.isFinite(m) && m > 0 ? m : 12;
       };
-      setRows(
-        data.map((d: any) => ({
-          data: fmt(d.vencimento),
-          produto: d.produto || "",
-          valor: d.valor != null ? `R$ ${Number(d.valor).toFixed(2)}` : "",
-          status: d.status || "",
-        })),
-      );
+      const addMonths = (iso: string | null, n: number) => {
+        const base = iso ? new Date(iso) : new Date();
+        const d = new Date(base.getTime());
+        d.setMonth(d.getMonth() + n);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      };
+      const fmtBRL = (v: number) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+      const fmtPt = (iso: string) => {
+        const [y, m, d] = iso.split("-");
+        return `${d}/${m}/${y}`;
+      };
+      const today = new Date();
+      const out: Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }> = [];
+      subs.forEach((s) => {
+        const total = monthsFromPlano(s.plano);
+        for (let i = 1; i <= total; i++) {
+          const vencIso = addMonths(s.created_at, i);
+          const paid = paidMap.get(`${s.id}|${vencIso}`) === true;
+          let status: "Pago" | "Pendente" | "Em atraso" = "Pendente";
+          if (paid) status = "Pago";
+          else {
+            const d = new Date(vencIso);
+            if (d.getTime() < today.getTime()) status = "Em atraso";
+          }
+          out.push({
+            data: fmtPt(vencIso),
+            produto: s.produto,
+            valor: fmtBRL(s.valor),
+            status,
+          });
+        }
+      });
+      // Ordenar por data asc
+      out.sort((a, b) => {
+        const [ad, am, ay] = a.data.split("/").map(Number);
+        const [bd, bm, by] = b.data.split("/").map(Number);
+        const at = new Date(ay, am - 1, ad).getTime();
+        const bt = new Date(by, bm - 1, bd).getTime();
+        return at - bt;
+      });
+      setRows(out);
     };
     run();
   }, []);
@@ -127,7 +172,15 @@ export default function ClientPayments() {
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
                   <td className="px-4 py-3">{row.valor}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        row.status === "Pago"
+                          ? "bg-primary/10 text-primary"
+                          : row.status === "Em atraso"
+                          ? "bg-red-500/10 text-red-600"
+                          : "bg-yellow-500/10 text-yellow-600"
+                      }`}
+                    >
                       {row.status}
                     </span>
                   </td>
