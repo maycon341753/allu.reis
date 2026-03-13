@@ -20,6 +20,12 @@ export default function CheckoutAddress() {
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
   const [info, setInfo] = useState<any>(null);
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  };
   const formatCEP = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 8);
     const p1 = d.slice(0, 5);
@@ -96,11 +102,11 @@ export default function CheckoutAddress() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Subtotal</span>
-                    <span className="text-sm">{product.preco_mensal != null ? `R$ ${product.preco_mensal}/mês` : "—"}</span>
+                    <span className="text-sm">{product.preco_mensal != null ? `${formatBRL(product.preco_mensal)}/mês` : "—"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">Total</span>
-                    <span className="font-semibold">{info.total ? `R$ ${info.total}/mês` : "—"}</span>
+                    <span className="font-semibold">{info.total ? `${formatBRL(info.total)}/mês` : "—"}</span>
                   </div>
                 </div>
               ) : (

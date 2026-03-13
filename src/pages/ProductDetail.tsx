@@ -10,6 +10,12 @@ export default function ProductDetail() {
   const { id } = useParams();
   const product = mockProducts.find((p) => p.id === id);
   const [selectedPlan, setSelectedPlan] = useState<12 | 24 | 36>(24);
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  };
 
   if (!product) {
     return (
@@ -74,7 +80,7 @@ export default function ProductDetail() {
                       }`}
                     >
                       <span className="block text-sm text-muted-foreground">{months} meses</span>
-                      <span className="mt-1 block font-display text-2xl font-bold">R${prices[months]}</span>
+                      <span className="mt-1 block font-display text-2xl font-bold">{formatBRL(prices[months])}</span>
                       <span className="block text-xs text-muted-foreground">/mês</span>
                     </button>
                   ))}

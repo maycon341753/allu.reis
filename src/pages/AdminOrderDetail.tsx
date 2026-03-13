@@ -51,6 +51,12 @@ export default function AdminOrderDetail() {
       return String(s);
     }
   };
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -175,7 +181,7 @@ export default function AdminOrderDetail() {
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Nome do produto</span><span className="font-medium">{order?.produto || "—"}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Plano</span><span className="font-medium">{order?.plano || "—"}</span></div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Valor mensal</span><span className="font-medium">{order?.valor_mensal ? String(order?.valor_mensal) : "—"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Valor mensal</span><span className="font-medium">{formatBRL(order?.valor_mensal)}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Forma de pagamento</span><span className="font-medium">{order?.forma_pagamento || "—"}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium">{order?.status || "—"}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Criado em</span><span className="font-medium">{fmtDate(order?.created_at)}</span></div>

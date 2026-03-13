@@ -489,7 +489,7 @@ export default function AdminProducts() {
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">{row.nome}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.categoria}</td>
-                  <td className="px-4 py-3">{row.preco_mensal}</td>
+                  <td className="px-4 py-3">{formatBRL(String(row.preco_mensal))}</td>
                   <td className="px-4 py-3">{row.estoque}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -508,7 +508,7 @@ export default function AdminProducts() {
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Produto {row.id}</DialogTitle>
+                            <DialogTitle>Produto {row.nome}</DialogTitle>
                             <DialogDescription>Detalhes do produto</DialogDescription>
                           </DialogHeader>
                           <div className="space-y-2 text-sm">
@@ -529,7 +529,7 @@ export default function AdminProducts() {
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Mensal</span>
-                              <span className="font-medium">{row.preco_mensal}</span>
+                              <span className="font-medium">{formatBRL(String(row.preco_mensal))}</span>
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Estoque</span>
