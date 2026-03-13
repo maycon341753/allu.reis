@@ -13,6 +13,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<12 | 24 | 36>(24);
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
@@ -20,9 +21,19 @@ export default function Checkout() {
   const [plano, setPlano] = useState("24m");
   const [nascimento, setNascimento] = useState("");
   const [cupom, setCupom] = useState("");
+  const [armazenamento, setArmazenamento] = useState<string>("");
+  const [planDiscounts, setPlanDiscounts] = useState<{ 12: number; 24: number; 36: number }>({ 12: 0, 24: 60, 36: 100 });
   const precoBase = product?.preco_mensal ?? 0;
-  const desconto = cupom === "CUPOM10" ? Math.round(precoBase * 0.1 * 100) / 100 : 0;
-  const total = Math.max(0, Math.round((precoBase - desconto) * 100) / 100);
+  const descontoCupom = cupom === "CUPOM10" ? Math.round(precoBase * 0.1 * 100) / 100 : 0;
+  const descontoPlano = planDiscounts[selectedPlan] ?? 0;
+  const precoAjustado = Math.max(0, Math.round((precoBase - descontoPlano) * 100) / 100);
+  const total = Math.max(0, Math.round((precoAjustado - descontoCupom) * 100) / 100);
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  };
   const formatCPF = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 11);
     const p1 = d.slice(0, 3);
@@ -64,8 +75,30 @@ export default function Checkout() {
   useEffect(() => {
     const run = async () => {
       if (!id) return;
-      const { data } = await supabase.from("products").select("id, nome, categoria, image_url, preco_mensal").eq("id", id).maybeSingle();
+      const { data } = await supabase.from("products").select("id, nome, categoria, image_url, preco_mensal, descricao").eq("id", id).maybeSingle();
       setProduct(data || null);
+      const { data: specs } = await supabase
+        .from("product_specs")
+        .select("spec_name, spec_value")
+        .eq("product_id", id);
+      const arm = (specs || []).find((s: any) => String(s.spec_name).toLowerCase() === "armazenamento");
+      setArmazenamento(arm?.spec_value || "");
+      const { data: pricing } = await supabase
+        .from("product_pricing")
+        .select("months, discount_per_month")
+        .eq("product_id", id);
+      if (pricing && Array.isArray(pricing) && pricing.length > 0) {
+        const next = { 12: 0, 24: 60, 36: 100 };
+        pricing.forEach((p: any) => {
+          const m = Number(p.months);
+          const d = Number(p.discount_per_month);
+          if (m === 12 || m === 24 || m === 36) {
+            // @ts-ignore
+            next[m] = isNaN(d) ? 0 : d;
+          }
+        });
+        setPlanDiscounts(next as any);
+      }
     };
     run();
   }, [id]);
@@ -97,41 +130,70 @@ export default function Checkout() {
           <h1 className="font-display text-3xl font-bold md:text-4xl">Checkout</h1>
           <p className="mt-2 text-muted-foreground">Preencha os dados para o contrato de assinatura</p>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <h2 className="font-display text-lg font-semibold">Produto</h2>
-              {product ? (
-                <div className="mt-4 flex items-center gap-4">
-                  <div className="h-20 w-20 overflow-hidden rounded-md bg-secondary">
-                    <img src={product.image_url || "/assets/placeholder.png"} alt={product.nome} className="h-full w-full object-cover" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{product.nome}</p>
-                    <p className="text-sm text-muted-foreground">{product.categoria}</p>
-                    <p className="mt-1 text-sm">Mensal: {product.preco_mensal != null ? `R$ ${product.preco_mensal}` : "—"}</p>
+          {/* Top product layout (similar ao exemplo) */}
+          {product && (
+            <div className="mt-10 grid gap-12 lg:grid-cols-2">
+              <div className="overflow-hidden rounded-2xl bg-secondary">
+                <img src={product.image_url || "/assets/placeholder.png"} alt={product.nome} className="w-full aspect-square object-cover" />
+              </div>
+              <div>
+                <h2 className="font-display text-3xl font-bold md:text-4xl">{product.nome}</h2>
+                <p className="mt-2 text-muted-foreground">{product.descricao || product.categoria || "Assinatura mensal de eletrônicos"}</p>
+                <div className="mt-6 flex items-end gap-2">
+                  <span className="text-sm text-muted-foreground">Preço/mês</span>
+                  <span className="font-display text-4xl font-bold">{formatBRL(precoAjustado)}</span>
+                </div>
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-muted-foreground">Armazenamento:</p>
+                  <div className="mt-2">
+                    <button className="rounded-full border px-4 py-2 text-sm font-semibold">{armazenamento || "—"}</button>
                   </div>
                 </div>
-              ) : (
-                <p className="mt-4 text-muted-foreground">Carregando...</p>
-              )}
-
-              <div className="mt-6">
-                <Label>Plano</Label>
-                <Select value={plano} onValueChange={setPlano}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="12m">12 meses</SelectItem>
-                    <SelectItem value="24m">24 meses</SelectItem>
-                    <SelectItem value="36m">36 meses</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-muted-foreground">Escolha o tempo de contrato:</p>
+                  <div className="mt-2 grid grid-cols-3 gap-3">
+                    {[12, 24, 36].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setSelectedPlan(m as 12 | 24 | 36);
+                          setPlano(`${m}m`);
+                        }}
+                        className={`rounded-xl border-2 p-4 text-center transition-all ${
+                          selectedPlan === m ? "border-primary bg-accent" : "border-border hover:border-primary/30"
+                        }`}
+                      >
+                        <span className="block text-sm">{m} meses</span>
+                        <span className="block text-xs text-green-600">−{formatBRL(planDiscounts[m as 12 | 24 | 36])}/mês</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  className="mt-6 w-full"
+                  onClick={() => {
+                    const el = document.getElementById("dados-contrato");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  Assinar
+                </Button>
+                <div className="mt-6 rounded-xl border p-4">
+                  <p className="font-display text-sm font-semibold">Benefícios e vantagens</p>
+                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    <li>Proteção contra furto qualificado e roubo</li>
+                    <li>Entrega grátis em 10 dias úteis</li>
+                    <li>Pague mês a mês sem comprometer o limite do cartão</li>
+                    <li>Qualidade garantida</li>
+                  </ul>
+                </div>
               </div>
             </div>
+          )}
 
+          <div className="mt-8 grid gap-8 lg:grid-cols-1">
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h2 className="font-display text-lg font-semibold">Dados do contrato</h2>
+              <h2 id="dados-contrato" className="font-display text-lg font-semibold">Dados do contrato</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="ck_nome">Nome completo</Label>
@@ -181,7 +243,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Subtotal</span>
-                    <span className="text-sm">{precoBase ? `R$ ${precoBase}/mês` : "—"}</span>
+                    <span className="text-sm">{precoBase ? `${formatBRL(precoAjustado)}/mês` : "—"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Cupom</span>
@@ -192,7 +254,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">Total</span>
-                    <span className="font-semibold">{total ? `R$ ${total}/mês` : "—"}</span>
+                    <span className="font-semibold">{total ? `${formatBRL(total)}/mês` : "—"}</span>
                   </div>
                 </div>
               )}
