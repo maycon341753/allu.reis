@@ -75,30 +75,64 @@ export default function Checkout() {
   useEffect(() => {
     const run = async () => {
       if (!id) return;
-      const { data } = await supabase.from("products").select("id, nome, categoria, image_url, preco_mensal, descricao").eq("id", id).maybeSingle();
-      setProduct(data || null);
+      const { data } = await supabase
+        .from("products")
+        .select("id, nome, categoria, image_url, preco_mensal, preco12, preco24, preco36, descricao")
+        .eq("id", id)
+        .maybeSingle();
+      let baseMonthly = data?.preco_mensal ?? null;
+      // Fallback: se não houver preco_mensal, tentar pegar o menor preço da tabela auxiliar
+      if (baseMonthly == null) {
+        const { data: auxMin } = await supabase
+          .from("product_pricing")
+          .select("monthly_price")
+          .eq("product_id", id)
+          .order("monthly_price", { ascending: true })
+          .limit(1);
+        if (auxMin && auxMin.length) {
+          const v = Number(auxMin[0]?.monthly_price ?? NaN);
+          baseMonthly = isFinite(v) ? v : null;
+        }
+      }
+      setProduct({
+        ...data,
+        preco_mensal: baseMonthly ?? 0,
+      });
       const { data: specs } = await supabase
         .from("product_specs")
         .select("spec_name, spec_value")
         .eq("product_id", id);
       const arm = (specs || []).find((s: any) => String(s.spec_name).toLowerCase() === "armazenamento");
       setArmazenamento(arm?.spec_value || "");
-      const { data: pricing } = await supabase
-        .from("product_pricing")
-        .select("months, discount_per_month")
-        .eq("product_id", id);
-      if (pricing && Array.isArray(pricing) && pricing.length > 0) {
-        const next = { 12: 0, 24: 60, 36: 100 };
-        pricing.forEach((p: any) => {
-          const m = Number(p.months);
-          const d = Number(p.discount_per_month);
-          if (m === 12 || m === 24 || m === 36) {
-            // @ts-ignore
-            next[m] = isNaN(d) ? 0 : d;
-          }
-        });
-        setPlanDiscounts(next as any);
+      // Definir descontos com base nos preços configurados no Admin (products.preco12/24/36)
+      const next = { 12: 0, 24: 0, 36: 0 } as { 12: number; 24: number; 36: number };
+      const base = Number(baseMonthly ?? 0);
+      const p12 = Number(data?.preco12 ?? NaN);
+      const p24 = Number(data?.preco24 ?? NaN);
+      const p36 = Number(data?.preco36 ?? NaN);
+      if (isFinite(base)) {
+        if (isFinite(p12)) next[12] = Math.max(0, Math.round((base - p12) * 100) / 100);
+        if (isFinite(p24)) next[24] = Math.max(0, Math.round((base - p24) * 100) / 100);
+        if (isFinite(p36)) next[36] = Math.max(0, Math.round((base - p36) * 100) / 100);
       }
+      // Fallback: se não houver preços no products, tentar derivar via product_pricing (monthly_price)
+      if (next[12] === 0 && next[24] === 0 && next[36] === 0) {
+        const { data: aux } = await supabase
+          .from("product_pricing")
+          .select("months, monthly_price")
+          .eq("product_id", id);
+        if (aux && base) {
+          aux.forEach((p: any) => {
+            const m = Number(p.months);
+            const mp = Number(p.monthly_price ?? NaN);
+            if ((m === 12 || m === 24 || m === 36) && isFinite(mp)) {
+              // @ts-ignore
+              next[m] = Math.max(0, Math.round((base - mp) * 100) / 100);
+            }
+          });
+        }
+      }
+      setPlanDiscounts(next);
     };
     run();
   }, [id]);

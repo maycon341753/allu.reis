@@ -514,8 +514,7 @@ export default function AdminProducts() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
-                      <Link to={`/admin/produtos/${row.id}`} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Detalhes</Link>
+                      <Link to={`/admin/produtos/${row.id}`} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Detalhes/Editar</Link>
                     </div>
                   </td>
                 </tr>
@@ -573,9 +572,8 @@ export default function AdminProducts() {
                    </div>
 
                    <div className="pt-2 flex gap-2">
-                     <Button className="flex-1" variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
                      <Link to={`/admin/produtos/${row.id}`} className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center justify-center">
-                       Detalhes
+                       Detalhes/Editar
                      </Link>
                    </div>
                 </div>

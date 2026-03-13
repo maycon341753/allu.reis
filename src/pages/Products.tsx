@@ -68,15 +68,38 @@ export default function ProductsPage() {
         .eq("status", "Ativo")
         .limit(200);
       if (!error && data) {
+        const ids = data.map((d: any) => d.id).filter(Boolean);
+        let minPriceByProduct: Record<string, number> = {};
+        if (ids.length) {
+          const { data: prices } = await supabase
+            .from("product_pricing")
+            .select("product_id, monthly_price")
+            .in("product_id", ids);
+          (prices || []).forEach((p: any) => {
+            const pid = p.product_id;
+            const val = Number(p.monthly_price ?? NaN);
+            if (isFinite(val)) {
+              minPriceByProduct[pid] = minPriceByProduct[pid] != null ? Math.min(minPriceByProduct[pid], val) : val;
+            }
+          });
+        }
         setItems(
-          data.map((d: any) => ({
-            id: d.id,
-            nome: d.nome,
-            categoria: d.categoria,
-            imagem: d.image_url ?? null,
-            preco_mensal: d.preco_mensal ?? null,
-            marca: null,
-          })),
+          data.map((d: any) => {
+            const preco =
+              d.preco_mensal != null && d.preco_mensal !== ""
+                ? Number(d.preco_mensal)
+                : minPriceByProduct[d.id] != null
+                ? Number(minPriceByProduct[d.id])
+                : null;
+            return {
+              id: d.id,
+              nome: d.nome,
+              categoria: d.categoria,
+              imagem: d.image_url ?? null,
+              preco_mensal: isFinite(Number(preco)) ? Number(preco) : null,
+              marca: null,
+            } as CatalogProduct;
+          }),
         );
       } else {
         setItems([]);
@@ -130,24 +153,28 @@ export default function ProductsPage() {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
-                <div className="p-5 flex flex-col h-full">
+                <div className="p-5">
                   <span className="text-xs font-medium uppercase tracking-wider text-primary mb-1">
                     {product.categoria === "Iphone" ? "Celular" : product.categoria}
                   </span>
                   <h3 className="font-display text-lg font-semibold leading-tight line-clamp-2 min-h-[3rem]">
                     {product.nome}
                   </h3>
-                  <div className="mt-auto pt-4">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-sm text-muted-foreground">a partir de</span>
-                      <span className="font-display text-xl font-bold text-primary">
-                        R$ {Number(product.preco_mensal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-sm text-muted-foreground">/mês</span>
-                    </div>
-                    <Button className="mt-4 w-full h-12 text-base font-medium" asChild>
-                      <Link to={`/checkout/${product.id}`}>Assinar</Link>
-                    </Button>
+                  <div className="mt-4 pt-2">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm text-muted-foreground">a partir de</span>
+                  <span className="font-display text-xl font-bold text-primary">
+                    {product.preco_mensal != null
+                      ? `R$ ${Number(product.preco_mensal).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}`
+                      : "Indisponível"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/mês</span>
+                </div>
+                <Button className="mt-4 w-full h-12 text-base font-medium" asChild>
+                  <Link to={`/checkout/${product.id}`}>Assinar</Link>
+                </Button>
                   </div>
                 </div>
               </div>
