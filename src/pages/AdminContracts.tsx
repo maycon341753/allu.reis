@@ -34,7 +34,7 @@ type ContractRow = {
   produto: string;
   plano: string;
   valor_mensal: string;
-  status: "Ativo" | "Pendente" | "Encerrado";
+  status: "Ativo" | "Pendente" | "Encerrado" | "Em análise";
   user_id?: string | null;
 };
 
@@ -59,9 +59,10 @@ export default function AdminContracts() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from("contracts")
-          .select("id, cliente, produto, plano, valor_mensal, status, user_id")
-          .limit(50);
+          .from("contratos")
+          .select("id, cliente, produto, plano, valor, status, user_id, created_at")
+          .order("created_at", { descending: true })
+          .limit(100);
         if (!error) {
           setRows(
             (data || []).map((d: any) => ({
@@ -69,8 +70,8 @@ export default function AdminContracts() {
               cliente: d.cliente || "",
               produto: d.produto || "",
               plano: d.plano || "",
-              valor_mensal: d.valor_mensal || "",
-              status: (d.status as ContractRow["status"]) || "Pendente",
+              valor_mensal: d.valor != null ? String(d.valor) : "",
+              status: (d.status as ContractRow["status"]) || "Em análise",
               user_id: d.user_id ?? null,
             }))
           );
@@ -92,6 +93,12 @@ export default function AdminContracts() {
     } else {
       toast({ title: "Contrato encerrado" });
     }
+  };
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
   };
   const generateContractText = (c: ContractRow) => {
     const empresa = "allu.reis";
@@ -275,18 +282,20 @@ export default function AdminContracts() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows
+                .filter((r) => r.status === "Em análise" || r.status === "Pendente")
+                .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">{row.id}</td>
                   <td className="px-4 py-3">{row.cliente}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.plano}</td>
-                  <td className="px-4 py-3">{row.valor_mensal}</td>
+                  <td className="px-4 py-3">{formatBRL(row.valor_mensal)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       row.status === "Ativo"
                         ? "bg-primary/10 text-primary"
-                        : row.status === "Pendente"
+                        : (row.status === "Pendente" || row.status === "Em análise")
                         ? "bg-yellow-500/10 text-yellow-600"
                         : "bg-secondary text-foreground"
                     }`}>

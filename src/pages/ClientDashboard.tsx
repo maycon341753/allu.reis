@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
   LayoutDashboard, Package, CreditCard, FileText, 
   Headphones, UserCircle, LogOut 
@@ -15,6 +17,83 @@ const menuItems = [
 
 export default function ClientDashboard() {
   const location = useLocation();
+  const [pagamentosEmDia, setPagamentosEmDia] = useState<string>("—");
+  const [mesesRestantes, setMesesRestantes] = useState<string>("—");
+  const [proximaCobranca, setProximaCobranca] = useState<string>("—");
+  const [produtosAtivos, setProdutosAtivos] = useState<number>(0);
+  const [alugadosCount, setAlugadosCount] = useState<number>(0);
+  const [contratoStatus, setContratoStatus] = useState<string>("—");
+  const [proximasCobrancasLista, setProximasCobrancasLista] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) return;
+      const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
+      const cpfDigits = String(profile?.cpf || "").replace(/\D/g, "");
+      const { data: pays } = await supabase
+        .from("payments")
+        .select("vencimento, status")
+        .eq("cliente_cpf", cpfDigits)
+        .order("vencimento", { descending: false })
+        .limit(50);
+      const today = new Date();
+      const pendentes = (pays || []).filter((p: any) => p.status === "Pendente");
+      const atrasados = pendentes.filter((p: any) => {
+        if (!p.vencimento) return false;
+        const d = new Date(p.vencimento);
+        return d.getTime() < today.getTime();
+      });
+      setPagamentosEmDia(atrasados.length ? "Não" : "Sim");
+      const next = pendentes.find((p: any) => p.vencimento);
+      if (next?.vencimento) {
+        const nd = new Date(next.vencimento);
+        const dd = String(nd.getDate()).padStart(2, "0");
+        const mm = String(nd.getMonth() + 1).padStart(2, "0");
+        const yy = nd.getFullYear();
+        setProximaCobranca(`${dd}/${mm}/${yy}`);
+      } else {
+        setProximaCobranca("—");
+      }
+      const { data: contratos } = await supabase
+        .from("contratos")
+        .select("status, plano, created_at")
+        .order("created_at", { descending: false })
+        .limit(50);
+      const ativos = (contratos || []).filter((c: any) => c.status === "Aprovado");
+      setProdutosAtivos(ativos.length);
+      setAlugadosCount(ativos.length);
+      const statusResumo =
+        contratos && contratos.length
+          ? [...new Set(contratos.map((c: any) => c.status))].join(", ")
+          : "—";
+      setContratoStatus(statusResumo);
+      setProximasCobrancasLista(
+        pendentes.slice(0, 3).map((p: any) => {
+          const s = p.vencimento;
+          if (!s) return "—";
+          const d = new Date(s);
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yy = d.getFullYear();
+          return `${dd}/${mm}/${yy}`;
+        }),
+      );
+      const alvo = ativos[0] || null;
+      if (alvo?.plano && alvo?.created_at) {
+        const total = parseInt(String(alvo.plano).replace("m", "")) || 0;
+        const start = new Date(alvo.created_at);
+        const diffMonths =
+          (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth());
+        const rest = Math.max(0, total - diffMonths);
+        setMesesRestantes(String(rest));
+      } else {
+        setMesesRestantes("—");
+      }
+    };
+    run();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -59,11 +138,43 @@ export default function ClientDashboard() {
         <h1 className="font-display text-2xl font-bold">Dashboard</h1>
         <p className="mt-1 text-muted-foreground">Bem-vindo!</p>
 
-        {/* Resumo */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Resumo</p>
-            <p className="mt-1 font-display text-2xl font-bold">—</p>
+            <p className="text-sm text-muted-foreground">Pagamentos em dia</p>
+            <p className="mt-1 font-display text-2xl font-bold">{pagamentosEmDia}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Meses restantes</p>
+            <p className="mt-1 font-display text-2xl font-bold">{mesesRestantes}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Próxima cobrança</p>
+            <p className="mt-1 font-display text-2xl font-bold">{proximaCobranca}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Produtos ativos</p>
+            <p className="mt-1 font-display text-2xl font-bold">{produtosAtivos}</p>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Produtos alugados</p>
+            <p className="mt-1 font-display text-2xl font-bold">{alugadosCount}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Status contrato</p>
+            <p className="mt-1 font-display text-2xl font-bold">{contratoStatus}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Próximas cobranças</p>
+            <div className="mt-2 space-y-1 text-sm">
+              {proximasCobrancasLista.length ? (
+                proximasCobrancasLista.map((d, i) => <div key={i}>{d}</div>)
+              ) : (
+                <div>—</div>
+              )}
+            </div>
           </div>
         </div>
 

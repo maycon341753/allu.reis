@@ -17,13 +17,17 @@ import ClientSupport from "./pages/ClientSupport";
 import ClientProfile from "./pages/ClientProfile";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
+import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminContracts from "./pages/AdminContracts";
 import AdminReports from "./pages/AdminReports";
 import AdminOrders from "./pages/AdminOrders";
+import AdminOrderDetail from "./pages/AdminOrderDetail";
 import AdminConfig from "./pages/AdminConfig";
 import AdminDocuments from "./pages/AdminDocuments";
 import AdminCredit from "./pages/AdminCredit";
+import AdminSupport from "./pages/AdminSupport";
 import AdminProducts from "./pages/AdminProducts";
+import AdminProductDetail from "./pages/AdminProductDetail";
 import AdminPayments from "./pages/AdminPayments";
 import Dashboard from "./pages/Dashboard";
 import Checkout from "./pages/Checkout";
@@ -53,13 +57,17 @@ const App = () => (
           <Route path="/cliente/perfil" element={<ClientProfile />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/usuarios" element={<AdminUsers />} />
+          <Route path="/admin/usuarios/:id" element={<AdminUserDetail />} />
           <Route path="/admin/contratos" element={<AdminContracts />} />
           <Route path="/admin/relatorios" element={<AdminReports />} />
           <Route path="/admin/pedidos" element={<AdminOrders />} />
+          <Route path="/admin/pedidos/:id" element={<AdminOrderDetail />} />
           <Route path="/admin/config" element={<AdminConfig />} />
           <Route path="/admin/documentos" element={<AdminDocuments />} />
           <Route path="/admin/credito" element={<AdminCredit />} />
+          <Route path="/admin/suporte" element={<AdminSupport />} />
           <Route path="/admin/produtos" element={<AdminProducts />} />
+          <Route path="/admin/produtos/:id" element={<AdminProductDetail />} />
           <Route path="/admin/pagamentos" element={<AdminPayments />} />
           <Route path="/checkout/:id" element={<Checkout />} />
           <Route path="/checkout/:id/endereco" element={<CheckoutAddress />} />

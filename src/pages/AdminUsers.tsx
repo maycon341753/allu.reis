@@ -6,6 +6,7 @@ import {
   BarChart3, Settings, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import AdminMobileNav from "@/components/admin/MobileNav";
@@ -28,6 +29,9 @@ type ProfileRow = {
   id: string;
   full_name: string | null;
   cpf: string | null;
+  email?: string | null;
+  status?: string | null;
+  created_at?: string | null;
   is_admin: boolean;
 };
 
@@ -36,13 +40,17 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [qNome, setQNome] = useState("");
+  const [qCpf, setQCpf] = useState("");
+  const [qEmail, setQEmail] = useState("");
+  const [qStatus, setQStatus] = useState("");
 
   useEffect(() => {
     const run = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, cpf, is_admin")
+        .select("id, full_name, cpf, is_admin, email, status, created_at")
         .order("full_name", { nulls: "last" })
         .limit(50);
       if (error) {
@@ -51,7 +59,15 @@ export default function AdminUsers() {
           { id: "demo-2", full_name: "Maycon Borges", cpf: "12345678901", is_admin: true },
         ]);
       } else {
-        setRows(data || []);
+        setRows((data || []).map((d: any) => ({
+          id: d.id,
+          full_name: d.full_name,
+          cpf: d.cpf,
+          email: d.email ?? null,
+          status: d.status ?? null,
+          created_at: d.created_at ?? null,
+          is_admin: !!d.is_admin,
+        })));
       }
       setLoading(false);
     };
@@ -68,6 +84,19 @@ export default function AdminUsers() {
       toast({ title: "Não foi possível atualizar", description: error.message });
     } else {
       toast({ title: next ? "Concedido acesso admin" : "Removido acesso admin" });
+    }
+  };
+  const norm = (s: string | null | undefined) => String(s || "").replace(/\D/g, "");
+  const fmtDate = (s?: string | null) => {
+    if (!s) return "—";
+    try {
+      const d = new Date(s);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = d.getFullYear();
+      return `${dd}/${mm}/${yy}`;
+    } catch {
+      return String(s);
     }
   };
 
@@ -115,42 +144,60 @@ export default function AdminUsers() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
+        <div className="mt-6 grid gap-3 sm:grid-cols-4">
+          <Input placeholder="Buscar por nome" value={qNome} onChange={(e) => setQNome(e.target.value)} />
+          <Input placeholder="Buscar por CPF" value={qCpf} onChange={(e) => setQCpf(e.target.value)} />
+          <Input placeholder="Buscar por email" value={qEmail} onChange={(e) => setQEmail(e.target.value)} />
+          <Input placeholder="Filtrar status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
+        </div>
+
         <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
-          <table className="min-w-[640px] w-full text-sm">
+          <table className="min-w-[800px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nome</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Email</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">CPF</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cadastro</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Admin</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows
+                .filter((r) => {
+                  const nomeOk = !qNome || String(r.full_name || "").toLowerCase().includes(qNome.toLowerCase());
+                  const cpfOk = !qCpf || norm(r.cpf).includes(norm(qCpf));
+                  const emailOk = !qEmail || String(r.email || "").toLowerCase().includes(qEmail.toLowerCase());
+                  const statusOk = !qStatus || String(r.status || "").toLowerCase().includes(qStatus.toLowerCase());
+                  return nomeOk && cpfOk && emailOk && statusOk;
+                })
+                .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{row.full_name || "—"}</td>
+                  <td className="px-4 py-3">{row.full_name || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.email || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.cpf || "—"}</td>
+                  <td className="px-4 py-3">{row.status || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{fmtDate(row.created_at)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       row.is_admin ? "bg-primary/10 text-primary" : "bg-secondary text-foreground"
                     }`}>
-                      {row.is_admin ? "Admin" : "Cliente"}
+                      {row.is_admin ? "Sim" : "Não"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" size="sm">Ver</Button>
-                      <Button variant="outline" size="sm">Editar</Button>
-                      <Button size="sm" onClick={() => toggleAdmin(row)}>
-                        {row.is_admin ? "Remover admin" : "Tornar admin"}
-                      </Button>
+                      <Link to={`/admin/usuarios/${row.id}`} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Ver perfil</Link>
+                      <Button variant="outline" size="sm" onClick={() => toggleAdmin(row)}>{row.is_admin ? "Remover admin" : "Conceder admin"}</Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={4}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={7}>
                     {loading ? "Carregando..." : "Nenhum usuário encontrado"}
                   </td>
                 </tr>

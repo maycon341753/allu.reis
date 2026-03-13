@@ -25,6 +25,21 @@ const menuItems = [
 export default function AdminDashboard() {
   const location = useLocation();
   const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
+  const [stats, setStats] = useState<{
+    users: string;
+    products: string;
+    pedidos: string;
+    contratos: string;
+    pagamentos: string;
+    documentos: string;
+  }>({
+    users: "—",
+    products: "—",
+    pedidos: "—",
+    contratos: "—",
+    pagamentos: "—",
+    documentos: "—",
+  });
   useEffect(() => {
     const run = async () => {
       const { data, error } = await supabase
@@ -44,6 +59,27 @@ export default function AdminDashboard() {
       } else {
         setOrders([]);
       }
+      // Load module stats
+      const countExact = async (table: string, eq?: { col: string; val: any }, schemaSelect?: string) => {
+        try {
+          let q = supabase.from(table).select(schemaSelect || "*", { count: "exact", head: true });
+          if (eq) q = q.eq(eq.col, eq.val);
+          const { count, error: cErr } = await q;
+          if (cErr) return "—";
+          return String(count ?? 0);
+        } catch {
+          return "—";
+        }
+      };
+      const [users, products, pedidos, contratos, pagamentos, documentos] = await Promise.all([
+        countExact("profiles"),
+        countExact("products", { col: "status", val: "Ativo" }),
+        countExact("orders", { col: "status", val: "Em análise" }),
+        countExact("contratos", { col: "status", val: "Em análise" }),
+        countExact("payments", { col: "status", val: "Pendente" }),
+        countExact("documents", { col: "status", val: "Pendente" }),
+      ]);
+      setStats({ users, products, pedidos, contratos, pagamentos, documentos });
     };
     run();
   }, []);
@@ -91,11 +127,23 @@ export default function AdminDashboard() {
         <h1 className="font-display text-2xl font-bold">Painel Administrativo</h1>
         <p className="mt-1 text-muted-foreground">Visão geral da plataforma</p>
 
-        {/* Stats */}
+        {/* Modules */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Sem dados</p>
-            <p className="mt-1 font-display text-2xl font-bold">—</p>
+            <p className="text-sm text-muted-foreground">Usuários</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.users}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Produtos ativos</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.products}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Pedidos em análise</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.pedidos}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.pagamentos}</p>
           </div>
         </div>
 

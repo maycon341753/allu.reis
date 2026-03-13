@@ -6,6 +6,7 @@ import {
   BarChart3, Settings, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import AdminMobileNav from "@/components/admin/MobileNav";
@@ -27,11 +28,13 @@ const menuItems = [
 type DocRow = {
   id: string;
   user_id: string | null;
-  nome: string;
+  arquivo: string;
   tipo: string;
   status: "Pendente" | "Aprovado" | "Rejeitado";
   url?: string | null;
   atualizado_em?: string | null;
+  cliente_nome?: string | null;
+  cliente_cpf?: string | null;
 };
 
 export default function AdminDocuments() {
@@ -39,6 +42,10 @@ export default function AdminDocuments() {
   const { toast } = useToast();
   const [rows, setRows] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState("");
+  const [countPend, setCountPend] = useState<string>("—");
+  const [countApr, setCountApr] = useState<string>("—");
+  const [countRej, setCountRej] = useState<string>("—");
 
   useEffect(() => {
     const run = async () => {
@@ -49,17 +56,55 @@ export default function AdminDocuments() {
           .select("id, user_id, nome, tipo, status, url, updated_at")
           .limit(50);
         if (!error) {
+          const docs = (data || []).map((d: any) => ({
+            id: d.id || "",
+            user_id: d.user_id ?? null,
+            arquivo: d.nome || "",
+            tipo: d.tipo || "",
+            status: (d.status as DocRow["status"]) || "Pendente",
+            url: d.url ?? null,
+            atualizado_em: d.updated_at || null,
+          }));
+          const ids = Array.from(new Set(docs.map((d) => d.user_id).filter(Boolean)));
+          let profileMap: Record<string, { full_name: string; cpf: string }> = {};
+          if (ids.length) {
+            const { data: profiles } = await supabase.from("profiles").select("id, full_name, cpf").in("id", ids);
+            (profiles || []).forEach((p: any) => {
+              profileMap[p.id] = { full_name: p.full_name || "", cpf: p.cpf || "" };
+            });
+          }
+          const fmtCpf = (cpf: string) => {
+            const d = String(cpf || "").replace(/\D/g, "").slice(0, 11);
+            if (d.length !== 11) return d || "—";
+            return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+          };
           setRows(
-            (data || []).map((d: any) => ({
-              id: d.id || "",
-              user_id: d.user_id ?? null,
-              nome: d.nome || "",
-              tipo: d.tipo || "",
-              status: (d.status as DocRow["status"]) || "Pendente",
-              url: d.url ?? null,
-              atualizado_em: d.updated_at || null,
+            docs.map((d) => ({
+              ...d,
+              cliente_nome: d.user_id ? profileMap[d.user_id]?.full_name || null : null,
+              cliente_cpf: d.user_id ? fmtCpf(profileMap[d.user_id]?.cpf || "") : null,
             }))
           );
+          // Contagens por status (consultas com count: 'exact')
+          const countExact = async (status: "Pendente" | "Aprovado" | "Rejeitado") => {
+            try {
+              const { count } = await supabase
+                .from("documents")
+                .select("*", { count: "exact", head: true })
+                .eq("status", status);
+              return String(count ?? 0);
+            } catch {
+              return "—";
+            }
+          };
+          const [p, a, r] = await Promise.all([
+            countExact("Pendente"),
+            countExact("Aprovado"),
+            countExact("Rejeitado"),
+          ]);
+          setCountPend(p);
+          setCountApr(a);
+          setCountRej(r);
         }
       } finally {
         setLoading(false);
@@ -132,12 +177,32 @@ export default function AdminDocuments() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
+        {/* Status cards */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Documentos pendentes</p>
+            <p className="mt-1 font-display text-2xl font-bold text-yellow-600">{countPend}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Documentos aprovados</p>
+            <p className="mt-1 font-display text-2xl font-bold text-primary">{countApr}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Documentos reprovados</p>
+            <p className="mt-1 font-display text-2xl font-bold text-red-600">{countRej}</p>
+          </div>
+        </div>
+
         <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+          <div className="flex flex-col gap-3 p-4 border-b border-border">
+            <Input placeholder="Buscar por CPF, Nome ou Tipo" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">CPF</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Atualizado</th>
@@ -145,10 +210,19 @@ export default function AdminDocuments() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {(rows.filter((row) => {
+                const norm = (s: string | null | undefined) => String(s || "").replace(/\D/g, "");
+                const qNorm = norm(q);
+                const qLower = q.toLowerCase();
+                const cpfOk = !qNorm || norm(row.cliente_cpf).includes(qNorm);
+                const nomeOk = !qLower || String(row.cliente_nome || "").toLowerCase().includes(qLower);
+                const tipoOk = !qLower || String(row.tipo || "").toLowerCase().includes(qLower);
+                return cpfOk || nomeOk || tipoOk;
+              })).map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">{row.id}</td>
-                  <td className="px-4 py-3">{row.nome}</td>
+                  <td className="px-4 py-3">{row.cliente_nome || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.cliente_cpf || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.tipo}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${

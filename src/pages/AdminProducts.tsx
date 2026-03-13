@@ -35,7 +35,7 @@ type ProductRow = {
   categoria: string;
   preco_mensal: string;
   estoque: number;
-  status: "Ativo" | "Indisponível";
+  status: string;
   image_url?: string | null;
 };
 
@@ -44,6 +44,7 @@ export default function AdminProducts() {
   const { toast } = useToast();
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -63,6 +64,10 @@ export default function AdminProducts() {
   const [eMensal, setEMensal] = useState("");
   const [eEstoque, setEEstoque] = useState("");
   const [eStatus, setEStatus] = useState<ProductRow["status"]>("Ativo");
+  const [qNome, setQNome] = useState("");
+  const [qCategoria, setQCategoria] = useState("");
+  const [qStatus, setQStatus] = useState("");
+  const [qEstoqueMin, setQEstoqueMin] = useState("");
   useEffect(() => {
     if (!pFile) {
       setPPreview(null);
@@ -143,21 +148,28 @@ export default function AdminProducts() {
       try {
         const { data, error } = await supabase
           .from("products")
-          .select("id, nome, categoria, preco_mensal, estoque, status, image_url")
+          .select("*")
           .limit(100);
-        if (!error) {
+        if (!error && data) {
           setRows(
-            (data || []).map((d: any) => ({
+            data.map((d: any) => ({
               id: d.id || "",
               nome: d.nome || "",
               categoria: d.categoria || "",
               preco_mensal: d.preco_mensal != null ? String(d.preco_mensal) : "",
-              estoque: Number(d.estoque ?? 0),
-              status: (d.status as ProductRow["status"]) || "Ativo",
+              estoque: Number(d.estoque ?? d.estoque_disponivel ?? 0),
+              status: d.status || "Ativo",
               image_url: d.image_url ?? null,
             }))
           );
+          setLoadError(null);
+        } else {
+          setRows([]);
+          setLoadError(error?.message || "Falha ao carregar produtos");
         }
+      } catch (e: any) {
+        setRows([]);
+        setLoadError(e?.message || "Erro inesperado ao carregar produtos");
       } finally {
         setLoading(false);
       }
@@ -439,11 +451,22 @@ export default function AdminProducts() {
           </div>
         </div>
 
+        <div className="mt-6 grid gap-3 sm:grid-cols-4">
+          <Input placeholder="Buscar por nome" value={qNome} onChange={(e) => setQNome(e.target.value)} />
+          <Input placeholder="Filtrar categoria" value={qCategoria} onChange={(e) => setQCategoria(e.target.value)} />
+          <Input placeholder="Filtrar status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
+          <Input placeholder="Estoque mínimo" value={qEstoqueMin} onChange={(e) => setQEstoqueMin(e.target.value)} />
+        </div>
+
         <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
+          {loadError && (
+            <div className="p-4 text-sm text-red-600 border-b border-border">
+              {loadError}
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nome</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoria</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Mensal</th>
@@ -453,9 +476,17 @@ export default function AdminProducts() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows
+                .filter((r) => {
+                  const nomeOk = !qNome || r.nome.toLowerCase().includes(qNome.toLowerCase());
+                  const catOk = !qCategoria || r.categoria.toLowerCase().includes(qCategoria.toLowerCase());
+                  const statusOk = !qStatus || r.status.toLowerCase().includes(qStatus.toLowerCase());
+                  const min = parseInt(qEstoqueMin || "0", 10);
+                  const estoqueOk = Number.isNaN(min) ? true : r.estoque >= min;
+                  return nomeOk && catOk && statusOk && estoqueOk;
+                })
+                .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{row.id}</td>
                   <td className="px-4 py-3">{row.nome}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.categoria}</td>
                   <td className="px-4 py-3">{row.preco_mensal}</td>
@@ -523,6 +554,7 @@ export default function AdminProducts() {
                         </DialogContent>
                       </Dialog>
                       <Button variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
+                      <Link to={`/admin/produtos/${row.id}`} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Detalhes</Link>
                       <Button variant="success" size="sm" onClick={() => setStatus(row, "Ativo")}>Ativar</Button>
                       <Button variant="destructive" size="sm" onClick={() => setStatus(row, "Indisponível")}>Indisponibilizar</Button>
                     </div>
@@ -531,7 +563,7 @@ export default function AdminProducts() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>
                     {loading ? "Carregando..." : "Nenhum produto encontrado"}
                   </td>
                 </tr>
@@ -540,6 +572,9 @@ export default function AdminProducts() {
           </table>
         </div>
       </main>
+
+      <AdminMobileNav />
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -591,7 +626,6 @@ export default function AdminProducts() {
           </div>
         </DialogContent>
       </Dialog>
-      <AdminMobileNav />
     </div>
   );
 }

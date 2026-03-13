@@ -39,6 +39,12 @@ export default function AdminPayments() {
   const { toast } = useToast();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const formatBRL = (v: any) => {
+    if (v == null) return "—";
+    const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+    if (isNaN(n)) return String(v);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -132,7 +138,6 @@ export default function AdminPayments() {
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Contrato</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
@@ -145,11 +150,10 @@ export default function AdminPayments() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{row.id}</td>
                   <td className="px-4 py-3">{row.cliente}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.contrato_id || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
-                  <td className="px-4 py-3">{row.valor}</td>
+                  <td className="px-4 py-3">{formatBRL(row.valor)}</td>
                   <td className="px-4 py-3">{row.vencimento}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -172,7 +176,7 @@ export default function AdminPayments() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={8}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={7}>
                     {loading ? "Carregando..." : "Nenhum pagamento encontrado"}
                   </td>
                 </tr>

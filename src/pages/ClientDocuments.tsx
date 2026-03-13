@@ -18,6 +18,9 @@ export default function ClientDocuments() {
   const [uid, setUid] = useState<string | null>(null);
   const [rows, setRows] = useState<Array<{ doc: string; tipo: string; status: string; updated: string; url?: string | null }>>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [approved, setApproved] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState("—");
   const docTypes = [
     { doc: "RG ou CNH (frente)", tipo: "rg_frente" },
     { doc: "RG ou CNH (verso)", tipo: "rg_verso" },
@@ -65,6 +68,16 @@ export default function ClientDocuments() {
           url: byTipo[t.tipo]?.url ?? null,
         })),
       );
+      const allUpdates = docs.map((d) => d.updated_at).filter(Boolean);
+      const latest = allUpdates.length ? new Date(Math.max(...allUpdates.map((v: any) => new Date(v).getTime()))) : null;
+      const dd = latest ? String(latest.getDate()).padStart(2, "0") : "";
+      const mm = latest ? String(latest.getMonth() + 1).padStart(2, "0") : "";
+      const yy = latest ? latest.getFullYear() : "";
+      const hh = latest ? String(latest.getHours()).padStart(2, "0") : "";
+      const min = latest ? String(latest.getMinutes()).padStart(2, "0") : "";
+      setLastUpdate(latest ? `${dd}/${mm}/${yy} ${hh}:${min}` : "—");
+      setApproved(docs.filter((d) => d.status === "Aprovado").length);
+      setPending(docTypes.length - docs.filter((d) => d.status === "Aprovado").length);
     };
     run();
   }, []);
@@ -138,8 +151,16 @@ export default function ClientDocuments() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Resumo</p>
-            <p className="mt-1 font-display text-2xl font-bold">—</p>
+            <p className="text-sm text-muted-foreground">Documentos aprovados</p>
+            <p className="mt-1 font-display text-2xl font-bold text-primary">{approved}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Documentos pendentes</p>
+            <p className="mt-1 font-display text-2xl font-bold text-yellow-600">{pending}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Última atualização</p>
+            <p className="mt-1 font-display text-2xl font-bold">{lastUpdate}</p>
           </div>
         </div>
 
