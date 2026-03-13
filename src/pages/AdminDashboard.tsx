@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -124,6 +124,9 @@ export default function AdminDashboard() {
 
       {/* Main */}
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <h1 className="font-display text-2xl font-bold">Painel Administrativo</h1>
         <p className="mt-1 text-muted-foreground">Visão geral da plataforma</p>
 
@@ -150,7 +153,7 @@ export default function AdminDashboard() {
         {/* Recent orders */}
         <div className="mt-8">
           <h2 className="font-display text-lg font-semibold">Pedidos recentes</h2>
-          <div className="mt-4 rounded-xl border border-border bg-card overflow-hidden">
+          <div className="mt-4 rounded-xl border border-border bg-card overflow-hidden hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/50">
@@ -187,9 +190,33 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+          
+          {/* Mobile Cards */}
+          <div className="mt-4 grid grid-cols-1 gap-4 md:hidden">
+            {orders.map((order, i) => (
+              <div key={i} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-2">
+                <div className="flex justify-between items-start">
+                  <div className="font-semibold text-foreground">{order.cliente}</div>
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    order.status === "Ativo" ? "bg-primary/10 text-primary" :
+                    order.status === "Pendente" ? "bg-yellow-500/10 text-yellow-600" :
+                    "bg-blue-500/10 text-blue-600"
+                  }`}>
+                    {order.status}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">{order.produto}</div>
+                <div className="text-xs text-muted-foreground">{order.plano}</div>
+              </div>
+            ))}
+            {orders.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                Nenhum pedido encontrado
+              </div>
+            )}
+          </div>
         </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

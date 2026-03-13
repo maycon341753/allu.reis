@@ -109,7 +109,7 @@ export default function ClientPayments() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[640px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -147,6 +147,32 @@ export default function ClientPayments() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          {rows.map((row, i) => (
+            <div key={i} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div className="font-semibold text-foreground">{row.produto}</div>
+                <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                  {row.status}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center border-t border-border pt-3 mt-1">
+                <div className="font-medium text-lg">{row.valor}</div>
+                <div className="text-sm text-muted-foreground">{row.data}</div>
+              </div>
+              
+              <button className="w-full rounded-lg bg-secondary px-3 py-2 text-xs font-medium hover:bg-secondary/80 transition-colors mt-2">
+                Recibo
+              </button>
+            </div>
+          ))}
+          {rows.length === 0 && (
+             <div className="text-center py-8 text-muted-foreground">Nenhum pagamento encontrado</div>
+          )}
         </div>
       </main>
     </div>

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -136,6 +136,9 @@ export default function AdminUsers() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Usuários</h1>
@@ -151,7 +154,7 @@ export default function AdminUsers() {
           <Input placeholder="Filtrar status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[800px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -205,8 +208,60 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          {rows
+            .filter((r) => {
+              const nomeOk = !qNome || String(r.full_name || "").toLowerCase().includes(qNome.toLowerCase());
+              const cpfOk = !qCpf || norm(r.cpf).includes(norm(qCpf));
+              const emailOk = !qEmail || String(r.email || "").toLowerCase().includes(qEmail.toLowerCase());
+              const statusOk = !qStatus || String(r.status || "").toLowerCase().includes(qStatus.toLowerCase());
+              return nomeOk && cpfOk && emailOk && statusOk;
+            })
+            .map((row) => (
+            <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold text-foreground">{row.full_name || "Sem nome"}</div>
+                  <div className="text-sm text-muted-foreground">{row.email || "—"}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{row.cpf || "—"}</div>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  row.is_admin ? "bg-primary/10 text-primary" : "bg-secondary text-foreground"
+                }`}>
+                  {row.is_admin ? "Admin" : "User"}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between text-sm border-t border-border pt-3">
+                <span className="text-muted-foreground">Status: {row.status || "—"}</span>
+                <span className="text-muted-foreground">{fmtDate(row.created_at)}</span>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Link 
+                  to={`/admin/usuarios/${row.id}`} 
+                  className="flex-1 flex items-center justify-center rounded-lg bg-secondary px-3 py-2 text-xs font-medium hover:bg-secondary/80 transition-colors"
+                >
+                  Ver perfil
+                </Link>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => toggleAdmin(row)}
+                >
+                  {row.is_admin ? "Remover admin" : "Conceder admin"}
+                </Button>
+              </div>
+            </div>
+          ))}
+          {rows.length === 0 && !loading && (
+             <div className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</div>
+          )}
+        </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

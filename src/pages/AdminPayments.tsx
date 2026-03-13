@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -126,6 +126,9 @@ export default function AdminPayments() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Pagamentos</h1>
@@ -134,7 +137,7 @@ export default function AdminPayments() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -184,8 +187,45 @@ export default function AdminPayments() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          {rows.map((row) => (
+            <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold text-foreground">{row.cliente}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Contrato: {row.contrato_id || "—"}</div>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  row.status === "Pago"
+                    ? "bg-primary/10 text-primary"
+                    : row.status === "Em atraso"
+                    ? "bg-red-500/10 text-red-600"
+                    : "bg-yellow-500/10 text-yellow-600"
+                }`}>
+                  {row.status}
+                </span>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">{row.produto}</div>
+              
+              <div className="flex justify-between items-center mt-1 border-t border-border pt-3">
+                <div className="font-medium text-lg">{formatBRL(row.valor)}</div>
+                <div className="text-sm text-muted-foreground">Venc: {row.vencimento}</div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Button variant="success" size="sm" onClick={() => marcarPago(row)}>Marcar pago</Button>
+                <Button variant="outline" size="sm" onClick={() => cobrar(row)}>Cobrar</Button>
+              </div>
+            </div>
+          ))}
+          {rows.length === 0 && !loading && (
+             <div className="text-center py-8 text-muted-foreground">Nenhum pagamento encontrado</div>
+          )}
+        </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

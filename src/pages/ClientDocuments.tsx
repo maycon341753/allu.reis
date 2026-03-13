@@ -164,7 +164,7 @@ export default function ClientDocuments() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden hidden md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -216,6 +216,36 @@ export default function ClientDocuments() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          {rows.map((row, i) => (
+            <div key={i} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div className="font-semibold text-foreground">{row.doc}</div>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  row.status === "Aprovado" ? "bg-primary/10 text-primary" :
+                  row.status === "Rejeitado" ? "bg-red-500/10 text-red-600" :
+                  "bg-yellow-500/10 text-yellow-600"
+                }`}>
+                  {row.status}
+                </span>
+              </div>
+              
+              <div className="text-xs text-muted-foreground">Atualizado: {row.updated}</div>
+              
+              <div className="flex gap-2 mt-1">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => handleChoose(row.tipo)}>
+                  <Upload className="mr-1 h-3 w-3" /> Enviar
+                </Button>
+                <Button variant="secondary" size="sm" className="flex-1" disabled={!row.url} onClick={() => row.url && window.open(row.url, "_blank")}>
+                  <Eye className="mr-1 h-3 w-3" /> Ver
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
       </main>
     </div>

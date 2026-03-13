@@ -12,7 +12,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -356,6 +356,9 @@ export default function AdminProductDetail() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Produto</h1>
@@ -539,7 +542,6 @@ export default function AdminProductDetail() {
           </div>
         </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

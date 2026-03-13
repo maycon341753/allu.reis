@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -169,6 +169,9 @@ export default function AdminDocuments() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Documentos</h1>
@@ -193,7 +196,7 @@ export default function AdminDocuments() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <div className="flex flex-col gap-3 p-4 border-b border-border">
             <Input placeholder="Buscar por CPF, Nome ou Tipo" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
@@ -255,8 +258,52 @@ export default function AdminDocuments() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          <Input placeholder="Buscar por CPF, Nome ou Tipo" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4" />
+          
+          {(rows.filter((row) => {
+            const norm = (s: string | null | undefined) => String(s || "").replace(/\D/g, "");
+            const qNorm = norm(q);
+            const qLower = q.toLowerCase();
+            const cpfOk = !qNorm || norm(row.cliente_cpf).includes(qNorm);
+            const nomeOk = !qLower || String(row.cliente_nome || "").toLowerCase().includes(qLower);
+            const tipoOk = !qLower || String(row.tipo || "").toLowerCase().includes(qLower);
+            return cpfOk || nomeOk || tipoOk;
+          })).map((row) => (
+            <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold text-foreground">{row.cliente_nome || "—"}</div>
+                  <div className="text-sm text-muted-foreground">{row.cliente_cpf || "—"}</div>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  row.status === "Aprovado"
+                    ? "bg-primary/10 text-primary"
+                    : row.status === "Pendente"
+                    ? "bg-yellow-500/10 text-yellow-600"
+                    : "bg-secondary text-foreground"
+                }`}>
+                  {row.status}
+                </span>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">Tipo: {row.tipo}</div>
+              <div className="text-xs text-muted-foreground">Atualizado: {row.atualizado_em || "—"}</div>
+              
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)}>Ver</Button>
+                <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
+                <Button variant="destructive" size="sm" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+              </div>
+            </div>
+          ))}
+          {rows.length === 0 && !loading && (
+             <div className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</div>
+          )}
+        </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

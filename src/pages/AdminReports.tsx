@@ -4,6 +4,7 @@ import {
   CreditCard, FolderOpen, ShieldCheck, Headphones,
   BarChart3, Settings, LogOut
 } from "lucide-react";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -58,6 +59,9 @@ export default function AdminReports() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <h1 className="font-display text-2xl font-bold">Relatórios</h1>
         <p className="mt-1 text-muted-foreground">Indicadores e listagens para acompanhamento</p>
 

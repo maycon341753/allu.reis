@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -115,6 +115,9 @@ export default function AdminCredit() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Análise de Crédito</h1>
@@ -123,7 +126,7 @@ export default function AdminCredit() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -200,8 +203,69 @@ export default function AdminCredit() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+            {rows.map((row) => (
+                <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                        <div>
+                        <div className="font-semibold text-foreground">{row.nome}</div>
+                        <div className="text-sm text-muted-foreground">Score: {row.score}</div>
+                        </div>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        row.status === "Aprovado"
+                            ? "bg-primary/10 text-primary"
+                            : row.status === "Em análise"
+                            ? "bg-yellow-500/10 text-yellow-600"
+                            : "bg-secondary text-foreground"
+                        }`}>
+                        {row.status}
+                        </span>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground">Atualizado: {row.updated_at || "—"}</div>
+                    
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="secondary" size="sm">Ver</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                <DialogTitle>Solicitação {row.id}</DialogTitle>
+                                <DialogDescription>Detalhes da análise</DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Cliente</span>
+                                    <span className="font-medium">{row.nome}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Score</span>
+                                    <span className="font-medium">{row.score}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Status</span>
+                                    <span className="font-medium">{row.status}</span>
+                                </div>
+                                </div>
+                                <div className="mt-4 flex gap-2">
+                                <Button variant="success" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
+                                <Button variant="destructive" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                        <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
+                        <Button variant="destructive" size="sm" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+                    </div>
+                </div>
+            ))}
+            {rows.length === 0 && !loading && (
+                <div className="text-center py-8 text-muted-foreground">Nenhuma análise encontrada</div>
+            )}
+        </div>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

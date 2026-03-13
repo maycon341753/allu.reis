@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -260,6 +260,9 @@ export default function AdminContracts() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Contratos</h1>
@@ -268,7 +271,7 @@ export default function AdminContracts() {
           <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -334,6 +337,58 @@ export default function AdminContracts() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+            {rows
+                .filter((r) => r.status === "Em análise" || r.status === "Pendente")
+                .map((row) => (
+                <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                        <div className="font-semibold">{row.cliente}</div>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            row.status === "Ativo"
+                            ? "bg-primary/10 text-primary"
+                            : (row.status === "Pendente" || row.status === "Em análise")
+                            ? "bg-yellow-500/10 text-yellow-600"
+                            : "bg-secondary text-foreground"
+                        }`}>
+                            {row.status}
+                        </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                        {row.produto} • {row.plano}
+                    </div>
+                    <div className="font-medium text-lg">
+                        {formatBRL(row.valor_mensal)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                        <Button variant="secondary" size="sm" className="w-full">Ver</Button>
+                        <Button variant="outline" size="sm" className="w-full">Editar</Button>
+                        <Button size="sm" onClick={() => closeContract(row)} className="w-full">Encerrar</Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                                setEdit({
+                                ...row,
+                                contractText: generateContractText(row),
+                                });
+                                setEditOpen(true);
+                            }}
+                        >
+                            Contrato
+                        </Button>
+                    </div>
+                </div>
+            ))}
+             {rows.length === 0 && !loading && (
+                <div className="text-center py-8 text-muted-foreground">Nenhum contrato encontrado</div>
+             )}
+        </div>
+
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent>
             <DialogHeader>
@@ -389,7 +444,6 @@ export default function AdminContracts() {
           </DialogContent>
         </Dialog>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -198,6 +198,9 @@ export default function AdminSupport() {
       </aside>
 
       <main className="flex-1 p-6 md:p-8 pb-16">
+        <div className="md:hidden mb-6">
+          <AdminSidebarMobile />
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Suporte</h1>
@@ -227,7 +230,7 @@ export default function AdminSupport() {
           <Input placeholder="Filtrar categoria" value={qCategoria} onChange={(e) => setQCategoria(e.target.value)} />
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-x-auto hidden md:block">
           <table className="min-w-[760px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -292,6 +295,58 @@ export default function AdminSupport() {
           </table>
         </div>
 
+        {/* Mobile Chat List */}
+        <div className="mt-6 flex flex-col md:hidden border-t border-border">
+            {rows
+                .filter((r) => {
+                    const buscaOk =
+                    !qBusca ||
+                    r.subject.toLowerCase().includes(qBusca.toLowerCase()) ||
+                    r.code.toLowerCase().includes(qBusca.toLowerCase());
+                    const statusOk = !qStatus || r.status.toLowerCase().includes(qStatus.toLowerCase());
+                    const catOk = !qCategoria || (r.category || "").toLowerCase().includes(qCategoria.toLowerCase());
+                    return buscaOk && statusOk && catOk;
+                })
+                .map((row) => (
+                <div 
+                    key={row.id} 
+                    className="flex gap-3 p-4 border-b border-border bg-card hover:bg-secondary/20 active:bg-secondary/40 transition-colors cursor-pointer" 
+                    onClick={() => openView(row.id)}
+                >
+                    <div className="flex-shrink-0 mt-1">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                            {row.subject.charAt(0).toUpperCase()}
+                        </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                            <h3 className="font-semibold truncate text-sm text-foreground">{row.subject}</h3>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">{row.updated_at}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            #{row.code} • {row.category || "Geral"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                row.status === "Resolvido"
+                                ? "bg-primary/10 text-primary"
+                                : row.status === "Em atendimento"
+                                ? "bg-blue-500/10 text-blue-600"
+                                : row.status === "Aguardando cliente"
+                                ? "bg-yellow-500/10 text-yellow-600"
+                                : "bg-secondary text-foreground"
+                            }`}>
+                                {row.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            ))}
+            {rows.length === 0 && !loading && (
+                <div className="text-center py-8 text-muted-foreground">Nenhum chamado encontrado</div>
+            )}
+        </div>
+
         <Dialog open={viewOpen} onOpenChange={setViewOpen}>
           <DialogContent>
             <DialogHeader>
@@ -326,7 +381,6 @@ export default function AdminSupport() {
           </DialogContent>
         </Dialog>
       </main>
-      <AdminMobileNav />
     </div>
   );
 }

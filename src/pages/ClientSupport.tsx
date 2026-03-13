@@ -339,7 +339,7 @@ export default function ClientSupport() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden">
+        <div className="mt-8 rounded-xl border border-border bg-card overflow-hidden hidden md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -388,6 +388,40 @@ export default function ClientSupport() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <div key={row.id} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div className="font-semibold text-foreground">{row.assunto}</div>
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    row.status === "Resolvido" ? "bg-primary/10 text-primary" :
+                    row.status === "Fechado" ? "bg-secondary text-foreground" :
+                    "bg-yellow-500/10 text-yellow-600"
+                  }`}>
+                    {row.status}
+                  </span>
+                </div>
+                
+                <div className="text-xs text-muted-foreground">Atualizado: {row.updated}</div>
+                
+                <div className="flex gap-2 mt-1">
+                  <button className="flex-1 rounded-lg bg-secondary px-3 py-2 text-xs font-medium hover:bg-secondary/80 transition-colors" onClick={() => openView(row.id)}>
+                    Ver
+                  </button>
+                  <button className="flex-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 transition-colors" onClick={() => openView(row.id)}>
+                    Responder
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+             <div className="text-center py-8 text-muted-foreground">Nenhum chamado encontrado</div>
+          )}
+        </div>
+
         <Dialog open={viewOpen} onOpenChange={setViewOpen}>
           <DialogContent>
             <DialogHeader>

@@ -119,9 +119,38 @@ export default function ProductsPage() {
           </div>
 
           {/* Grid */}
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-10 grid gap-6 grid-cols-1 tb:grid-cols-2 dt:grid-cols-3 ld:grid-cols-4">
             {filtered.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div key={product.id} className="group rounded-2xl border border-border bg-card overflow-hidden transition-all hover:shadow-lg">
+                <div className="aspect-square overflow-hidden bg-secondary relative">
+                  <img
+                    src={product.imagem || "/assets/placeholder.png"}
+                    alt={product.nome}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="p-5 flex flex-col h-full">
+                  <span className="text-xs font-medium uppercase tracking-wider text-primary mb-1">
+                    {product.categoria === "Iphone" ? "Celular" : product.categoria}
+                  </span>
+                  <h3 className="font-display text-lg font-semibold leading-tight line-clamp-2 min-h-[3rem]">
+                    {product.nome}
+                  </h3>
+                  <div className="mt-auto pt-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-sm text-muted-foreground">a partir de</span>
+                      <span className="font-display text-xl font-bold text-primary">
+                        R$ {Number(product.preco_mensal || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-sm text-muted-foreground">/mês</span>
+                    </div>
+                    <Button className="mt-4 w-full h-12 text-base font-medium" asChild>
+                      <Link to={`/checkout/${product.id}`}>Assinar</Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
             ))}
             {!loading && filtered.length === 0 && (
               <div className="col-span-full text-center text-muted-foreground">Nenhum produto encontrado</div>

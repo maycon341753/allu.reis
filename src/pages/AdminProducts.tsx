@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
-import AdminMobileNav from "@/components/admin/MobileNav";
+import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 import { Badge } from "@/components/ui/badge";
 
 const menuItems = [
@@ -68,6 +68,7 @@ export default function AdminProducts() {
   const [qCategoria, setQCategoria] = useState("");
   const [qStatus, setQStatus] = useState("");
   const [qEstoqueMin, setQEstoqueMin] = useState("");
+
   useEffect(() => {
     if (!pFile) {
       setPPreview(null);
@@ -77,17 +78,20 @@ export default function AdminProducts() {
     setPPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [pFile]);
+
   const formatBRL = (v: string) => {
     const digits = v.replace(/\D/g, "");
     if (!digits) return "";
     const num = Number(digits) / 100;
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
+
   const parseBRL = (v: string) => {
     const digits = v.replace(/\D/g, "");
     if (!digits) return 0;
     return Number(digits) / 100;
   };
+
   const openEdit = (row: ProductRow) => {
     setEId(row.id);
     setENome(row.nome);
@@ -97,6 +101,7 @@ export default function AdminProducts() {
     setEStatus(row.status);
     setEditOpen(true);
   };
+
   const saveEdit = async () => {
     if (!eId) return;
     if (!eNome || !eCategoria || !eMensal || !eEstoque) {
@@ -188,6 +193,7 @@ export default function AdminProducts() {
       toast({ title: "Status atualizado" });
     }
   };
+
   const uploadImage = async (row: ProductRow) => {
     if (!file) {
       toast({ title: "Selecione um arquivo" });
@@ -215,6 +221,7 @@ export default function AdminProducts() {
       setUploading(false);
     }
   };
+
   const createProduct = async () => {
     if (!pNome || !pCategoria || !pMensal || !pEstoque) {
       toast({ title: "Preencha todos os campos" });
@@ -322,19 +329,21 @@ export default function AdminProducts() {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-8 pb-16">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold">Produtos</h1>
-            <p className="mt-1 text-muted-foreground">Catálogo disponível para locação</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button variant="success">Novo produto</Button>
-              </DialogTrigger>
-              <DialogContent>
+      <main className="flex-1 p-4 md:p-8 pb-16">
+        <div className="flex items-center gap-4 mb-6">
+          <AdminSidebarMobile />
+          <div className="flex-1 flex items-center justify-between">
+             <div>
+               <h1 className="font-display text-2xl font-bold">Produtos</h1>
+               <p className="mt-1 text-sm text-muted-foreground">Catálogo disponível para locação</p>
+             </div>
+             <div className="flex gap-2">
+               <Button variant="outline" size="sm" disabled={loading} onClick={() => window.location.reload()}>Recarregar</Button>
+               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                 <DialogTrigger asChild>
+                   <Button variant="success" size="sm">Novo</Button>
+                 </DialogTrigger>
+                 <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Novo produto</DialogTitle>
                   <DialogDescription>Preencha os dados para adicionar ao catálogo</DialogDescription>
@@ -447,14 +456,15 @@ export default function AdminProducts() {
                   </div>
                 </div>
               </DialogContent>
-            </Dialog>
+               </Dialog>
+             </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-4">
+        <div className="mb-6 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Input placeholder="Buscar por nome" value={qNome} onChange={(e) => setQNome(e.target.value)} />
-          <Input placeholder="Filtrar categoria" value={qCategoria} onChange={(e) => setQCategoria(e.target.value)} />
-          <Input placeholder="Filtrar status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
+          <Input placeholder="Categoria" value={qCategoria} onChange={(e) => setQCategoria(e.target.value)} />
+          <Input placeholder="Status" value={qStatus} onChange={(e) => setQStatus(e.target.value)} />
           <Input placeholder="Estoque mínimo" value={qEstoqueMin} onChange={(e) => setQEstoqueMin(e.target.value)} />
         </div>
 
@@ -464,6 +474,8 @@ export default function AdminProducts() {
               {loadError}
             </div>
           )}
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -486,8 +498,8 @@ export default function AdminProducts() {
                   return nomeOk && catOk && statusOk && estoqueOk;
                 })
                 .map((row) => (
-                <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">{row.nome}</td>
+                <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                  <td className="px-4 py-3 font-medium">{row.nome}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.categoria}</td>
                   <td className="px-4 py-3">{formatBRL(String(row.preco_mensal))}</td>
                   <td className="px-4 py-3">{row.estoque}</td>
@@ -502,79 +514,81 @@ export default function AdminProducts() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="secondary" size="sm">Ver</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Produto {row.nome}</DialogTitle>
-                            <DialogDescription>Detalhes do produto</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-2 text-sm">
-                            {row.image_url ? (
-                              <img src={row.image_url} alt={row.nome} className="h-32 w-32 rounded-md object-cover border border-border" />
-                            ) : (
-                              <div className="h-32 w-32 rounded-md border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
-                                Sem imagem
-                              </div>
-                            )}
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Nome</span>
-                              <span className="font-medium">{row.nome}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Categoria</span>
-                              <span className="font-medium">{row.categoria}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Mensal</span>
-                              <span className="font-medium">{formatBRL(String(row.preco_mensal))}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Estoque</span>
-                              <span className="font-medium">{row.estoque}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Status</span>
-                              <span className="font-medium">{row.status}</span>
-                            </div>
-                            <div className="mt-3 space-y-2">
-                              <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-                              <div className="flex gap-2">
-                                <Button disabled={uploading || !file} onClick={() => uploadImage(row)}>Enviar imagem</Button>
-                                <Button variant="outline" onClick={() => setFile(null)} disabled={uploading || !file}>Limpar</Button>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-4 flex gap-2">
-                            <Button variant="success" onClick={() => setStatus(row, "Ativo")}>Ativar</Button>
-                            <Button variant="destructive" onClick={() => setStatus(row, "Indisponível")}>Indisponibilizar</Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
                       <Button variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
                       <Link to={`/admin/produtos/${row.id}`} className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">Detalhes</Link>
-                      <Button variant="success" size="sm" onClick={() => setStatus(row, "Ativo")}>Ativar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => setStatus(row, "Indisponível")}>Indisponibilizar</Button>
                     </div>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>
                     {loading ? "Carregando..." : "Nenhum produto encontrado"}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden p-4 space-y-4">
+             {rows
+                .filter((r) => {
+                  const nomeOk = !qNome || r.nome.toLowerCase().includes(qNome.toLowerCase());
+                  const catOk = !qCategoria || r.categoria.toLowerCase().includes(qCategoria.toLowerCase());
+                  const statusOk = !qStatus || r.status.toLowerCase().includes(qStatus.toLowerCase());
+                  const min = parseInt(qEstoqueMin || "0", 10);
+                  const estoqueOk = Number.isNaN(min) ? true : r.estoque >= min;
+                  return nomeOk && catOk && statusOk && estoqueOk;
+                })
+                .map((row) => (
+                <div key={row.id} className="bg-card border border-border rounded-xl p-4 shadow-sm space-y-3">
+                   <div className="flex justify-between items-start">
+                     <div className="flex gap-3">
+                       {row.image_url && <img src={row.image_url} alt={row.nome} className="w-12 h-12 rounded object-cover bg-secondary" />}
+                       <div>
+                         <h3 className="font-medium text-base line-clamp-1">{row.nome}</h3>
+                         <p className="text-sm text-muted-foreground">{row.categoria}</p>
+                       </div>
+                     </div>
+                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        row.status === "Ativo"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-secondary text-foreground"
+                      }`}>
+                        {row.status}
+                      </span>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-border/50">
+                     <div>
+                       <span className="text-xs text-muted-foreground block">Mensal</span>
+                       {formatBRL(String(row.preco_mensal))}
+                     </div>
+                     <div>
+                       <span className="text-xs text-muted-foreground block">Estoque</span>
+                       {row.estoque}
+                     </div>
+                   </div>
+
+                   <div className="pt-2 flex gap-2">
+                     <Button className="flex-1" variant="outline" size="sm" onClick={() => openEdit(row)}>Editar</Button>
+                     <Link to={`/admin/produtos/${row.id}`} className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors flex items-center justify-center">
+                       Detalhes
+                     </Link>
+                   </div>
+                </div>
+             ))}
+             {!loading && rows.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum produto encontrado
+                </div>
+              )}
+          </div>
         </div>
       </main>
-
-      <AdminMobileNav />
-
+      
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
