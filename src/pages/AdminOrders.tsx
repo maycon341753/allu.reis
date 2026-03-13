@@ -73,10 +73,11 @@ export default function AdminOrders() {
     const run = async () => {
       setLoading(true);
       try {
+        // Alguns ambientes podem não ter created_at; ordene por id para evitar erro
         const { data, error } = await supabase
           .from("orders")
           .select("id, cliente, produto, plano, forma_pagamento, status, created_at")
-          .order("created_at", { descending: true })
+          .order("id", { descending: true })
           .limit(100);
         if (!error) {
           const fmt = (s?: string | null) => {

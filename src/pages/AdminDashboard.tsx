@@ -25,6 +25,8 @@ const menuItems = [
 export default function AdminDashboard() {
   const location = useLocation();
   const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
+  const [payments, setPayments] = useState<Array<{ cliente: string; valor: string; status: string; metodo: string; data: string | null }>>([]);
+  const [finance, setFinance] = useState<{ recebidoMes: string; pendentes: string }>({ recebidoMes: "—", pendentes: "—" });
   const [stats, setStats] = useState<{
     users: string;
     products: string;
@@ -59,7 +61,6 @@ export default function AdminDashboard() {
       } else {
         setOrders([]);
       }
-      // Load module stats
       const countExact = async (table: string, eq?: { col: string; val: any }, schemaSelect?: string) => {
         try {
           let q = supabase.from(table).select(schemaSelect || "*", { count: "exact", head: true });
@@ -80,6 +81,31 @@ export default function AdminDashboard() {
         countExact("documents", { col: "status", val: "Pendente" }),
       ]);
       setStats({ users, products, pedidos, contratos, pagamentos, documentos });
+      const { data: pays } = await supabase
+        .from("payments")
+        .select("cliente_nome, valor, status, metodo, created_at")
+        .order("created_at", { descending: true })
+        .limit(12);
+      const payRows = (pays || []).map((p: any) => ({
+        cliente: p.cliente_nome || "",
+        valor: String(p.valor ?? ""),
+        status: p.status || "",
+        metodo: p.metodo || "",
+        data: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : null,
+      }));
+      setPayments(payRows);
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const toNumber = (v: string) => {
+        const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+        return isNaN(n) ? 0 : n;
+      };
+      const recebido = payRows
+        .filter((r) => r.status === "Pago" && (r.data?.endsWith(`/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`) ?? false))
+        .reduce((sum, r) => sum + toNumber(r.valor), 0);
+      const pend = payRows.filter((r) => r.status !== "Pago").length;
+      const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(recebido);
+      setFinance({ recebidoMes: fmt, pendentes: String(pend) });
     };
     run();
   }, []);
@@ -147,6 +173,60 @@ export default function AdminDashboard() {
           <div className="rounded-xl border border-border bg-card p-5">
             <p className="text-sm text-muted-foreground">Pagamentos pendentes</p>
             <p className="mt-1 font-display text-2xl font-bold">{stats.pagamentos}</p>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Financeiro</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Recebido no mês</p>
+                <p className="mt-1 font-display text-xl font-bold">{finance.recebidoMes}</p>
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <p className="text-xs text-muted-foreground">Pagamentos pendentes</p>
+                <p className="mt-1 font-display text-xl font-bold">{finance.pendentes}</p>
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 overflow-x-auto">
+            <p className="text-sm text-muted-foreground">Últimos pagamentos</p>
+            <table className="mt-3 w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/50">
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Cliente</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Valor</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Método</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2">{p.cliente || "—"}</td>
+                    <td className="px-3 py-2">{p.valor || "—"}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        p.status === "Pago" ? "bg-primary/10 text-primary" :
+                        p.status === "Pendente" ? "bg-yellow-500/10 text-yellow-600" :
+                        "bg-secondary text-foreground"
+                      }`}>
+                        {p.status || "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">{p.metodo || "—"}</td>
+                    <td className="px-3 py-2">{p.data || "—"}</td>
+                  </tr>
+                ))}
+                {payments.length === 0 && (
+                  <tr>
+                    <td className="px-3 py-6 text-center text-muted-foreground" colSpan={5}>Sem pagamentos recentes</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
