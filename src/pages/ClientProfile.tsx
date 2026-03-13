@@ -118,7 +118,11 @@ export default function ClientProfile() {
 
       <main className="flex-1 p-6 md:p-8">
         <h1 className="font-display text-2xl font-bold">Perfil</h1>
-        <p className="mt-1 text-muted-foreground">Atualize seus dados pessoais.</p>
+        <p className="mt-1 text-muted-foreground">
+          Seus dados pessoais estão bloqueados para edição. Para alterar, acesse{" "}
+          <Link to="/cliente/suporte" className="text-primary underline hover:text-primary/80">Suporte</Link>{" "}
+          e abra um chamado.
+        </p>
 
         <form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={handleSave}>
           <div className="sm:col-span-2">
@@ -132,25 +136,27 @@ export default function ClientProfile() {
             <Label htmlFor="full_name">Nome completo</Label>
             <div className="relative mt-1">
               <UserCircle size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input id="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" className="pl-10" required />
+              <Input id="full_name" value={fullName} readOnly disabled placeholder="Seu nome" className="pl-10" required />
             </div>
           </div>
           <div>
             <Label htmlFor="phone">Telefone</Label>
             <div className="relative mt-1">
               <PhoneIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" className="pl-10" />
+              <Input id="phone" value={phone} readOnly disabled placeholder="(11) 99999-9999" className="pl-10" />
             </div>
           </div>
           <div>
             <Label htmlFor="cpf">CPF</Label>
             <div className="relative mt-1">
               <IdCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input id="cpf" value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" className="pl-10" maxLength={14} />
+              <Input id="cpf" value={cpf} readOnly disabled placeholder="000.000.000-00" className="pl-10" maxLength={14} />
             </div>
           </div>
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={loading}>Salvar alterações</Button>
+            <Button asChild variant="outline">
+              <Link to="/cliente/suporte">Solicitar alteração via Suporte</Link>
+            </Button>
           </div>
         </form>
       </main>
