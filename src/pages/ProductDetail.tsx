@@ -13,6 +13,7 @@ export default function ProductDetail() {
   const [selectedPlan, setSelectedPlan] = useState<12 | 24 | 36>(24);
   const [storages, setStorages] = useState<Array<{ id: string; capacity: string; price_adjustment: number }>>([]);
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  const [specs, setSpecs] = useState<Array<{ id: string; name: string; value: string }>>([]);
 
   const formatBRL = (v: any) => {
     if (v == null) return "—";
@@ -34,17 +35,39 @@ export default function ProductDetail() {
         if (prod) {
           setProduct(prod);
           
-          const { data: st } = await supabase
+          // Fetch Storages - Verificando o ID do produto
+          console.log("Fetching storage for product:", id);
+          const { data: st, error: stError } = await supabase
             .from("product_storage_options")
             .select("id, capacity, price_adjustment")
-            .eq("product_id", id)
-            .order("capacity", { ascending: true });
+            .eq("product_id", id);
           
-          const options = st || [];
-          setStorages(options);
-          if (options.length > 0) {
-            setSelectedStorage(options[0].id);
+          if (stError) {
+            console.error("Erro ao buscar armazenamento:", stError);
           }
+
+          const options = st || [];
+          console.log("Storage options found:", options);
+          
+          // Ordenar manualmente se o capacity for texto
+          const sortedOptions = options.sort((a, b) => {
+            const valA = parseInt(a.capacity);
+            const valB = parseInt(b.capacity);
+            if (!isNaN(valA) && !isNaN(valB)) return valA - valB;
+            return a.capacity.localeCompare(b.capacity);
+          });
+
+          setStorages(sortedOptions);
+          if (sortedOptions.length > 0) {
+            setSelectedStorage(sortedOptions[0].id);
+          }
+
+          // Fetch Specs
+          const { data: sp } = await supabase
+            .from("product_specs")
+            .select("id, spec_name, spec_value")
+            .eq("product_id", id);
+          setSpecs((sp || []).map((s: any) => ({ id: s.id, name: s.spec_name, value: s.spec_value })));
         }
       } catch (err) {
         console.error("Erro ao buscar produto:", err);
@@ -80,10 +103,16 @@ export default function ProductDetail() {
   }
 
   const storageAdjustment = storages.find(s => s.id === selectedStorage)?.price_adjustment || 0;
+  
+  // Garantir que os preços base sejam números
+  const basePreco12 = Number(product.preco12) || 0;
+  const basePreco24 = Number(product.preco24) || 0;
+  const basePreco36 = Number(product.preco36) || 0;
+
   const prices = { 
-    12: (product.preco12 || 0) + storageAdjustment, 
-    24: (product.preco24 || 0) + storageAdjustment, 
-    36: (product.preco36 || 0) + storageAdjustment 
+    12: basePreco12 + storageAdjustment, 
+    24: basePreco24 + storageAdjustment, 
+    36: basePreco36 + storageAdjustment 
   };
   const currentPrice = prices[selectedPlan];
 
@@ -119,12 +148,26 @@ export default function ProductDetail() {
                         onClick={() => setSelectedStorage(st.id)}
                         className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
                           selectedStorage === st.id
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border hover:border-primary/50"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border hover:border-primary/50"
                         }`}
                       >
                         {st.capacity}
                       </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Specs */}
+              {specs.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">Especificações</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {specs.map((spec) => (
+                      <span key={spec.id} className="rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground">
+                        {spec.name}: {spec.value}
+                      </span>
                     ))}
                   </div>
                 </div>
