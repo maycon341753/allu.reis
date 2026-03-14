@@ -4,7 +4,7 @@ import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { Smartphone, Watch, Tablet, Laptop, Filter } from "lucide-react";
+import { Smartphone, Watch, Tablet, Laptop, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { mockProducts } from "@/data/products";
 
 const categories = [
@@ -22,34 +22,96 @@ type CatalogProduct = {
   imagem?: string | null;
   preco_mensal?: number | null;
   marca?: string | null;
+  galeria?: string[];
 };
 
 const displayCategory = (c: string) => (c === "Iphone" ? "Celular" : c);
 
 function ProductCard({ product }: { product: CatalogProduct }) {
+  const images = product.galeria && product.galeria.length > 0 
+    ? product.galeria 
+    : [product.imagem || "/assets/placeholder.png"];
+  
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const nextImg = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImg = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
   return (
-    <div className="card-elevated group rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="aspect-square overflow-hidden bg-secondary">
-        <img
-          src={product.imagem || "/assets/placeholder.png"}
-          alt={product.nome}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+    <div className="group rounded-2xl border border-border bg-card overflow-hidden transition-all hover:shadow-lg">
+      <div className="aspect-square overflow-hidden bg-secondary relative">
+        {/* Carrossel de Imagens */}
+        <div className="relative h-full w-full">
+          <img
+            src={images[currentIndex]}
+            alt={product.nome}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          
+          {images.length > 1 && (
+            <>
+              {/* Controles do Carrossel */}
+              <button 
+                onClick={prevImg}
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-1 text-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-background"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button 
+                onClick={nextImg}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-1 text-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-background"
+              >
+                <ChevronRight size={20} />
+              </button>
+
+              {/* Indicadores (Dots) */}
+              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                {images.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-1.5 w-1.5 rounded-full transition-all ${
+                      idx === currentIndex ? "bg-primary w-3" : "bg-primary/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <div className="p-5">
-        <span className="text-xs font-medium uppercase tracking-wider text-primary">{displayCategory(product.categoria)}</span>
-        <h3 className="mt-1 font-display text-lg font-semibold leading-tight">{product.nome}</h3>
-        {product.marca && <p className="mt-1 text-sm text-muted-foreground">{product.marca}</p>}
-        <div className="mt-4 flex items-end gap-1">
-          <span className="text-sm text-muted-foreground">a partir de</span>
-          <span className="font-display text-2xl font-bold text-primary">
-            {product.preco_mensal != null ? `R$ ${product.preco_mensal}` : "—"}
-          </span>
-          <span className="text-sm text-muted-foreground">/mês</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-primary mb-1">
+          {product.categoria === "Iphone" ? "Celular" : product.categoria}
+        </span>
+        <h3 className="font-display text-lg font-semibold leading-tight line-clamp-2 min-h-[3rem]">
+          {product.nome}
+        </h3>
+        <div className="mt-4 pt-2">
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm text-muted-foreground">a partir de</span>
+            <span className="font-display text-xl font-bold text-primary">
+              {product.preco_mensal != null
+                ? `R$ ${Number(product.preco_mensal).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}`
+                : "Indisponível"}
+            </span>
+            <span className="text-sm text-muted-foreground">/mês</span>
+          </div>
+          <Button className="mt-4 w-full h-12 text-base font-medium" asChild>
+            <Link to={`/checkout/${product.id}`}>Assinar</Link>
+          </Button>
         </div>
-        <Button className="mt-4 w-full" asChild>
-          <Link to={`/checkout/${product.id}`}>Assinar</Link>
-        </Button>
       </div>
     </div>
   );
@@ -75,6 +137,23 @@ export default function ProductsPage() {
         }
 
         const ids = data.map((d: any) => d.id).filter(Boolean);
+        
+        // Busca galeria para todos os produtos de uma vez
+        const { data: galleries } = await supabase
+          .from("product_images")
+          .select("product_id, image_url, principal")
+          .in("product_id", ids);
+
+        let galleryMap: Record<string, string[]> = {};
+        (galleries || []).forEach((img: any) => {
+          if (!galleryMap[img.product_id]) galleryMap[img.product_id] = [];
+          if (img.principal) {
+            galleryMap[img.product_id].unshift(img.image_url);
+          } else {
+            galleryMap[img.product_id].push(img.image_url);
+          }
+        });
+
         let minPriceByProduct: Record<string, number> = {};
         
         if (ids.length) {
@@ -104,6 +183,12 @@ export default function ProductsPage() {
              preco = minPriceByProduct[d.id];
           }
 
+          // Combina a imagem principal do produto com a galeria
+          let finalGallery = galleryMap[d.id] || [];
+          if (d.image_url && !finalGallery.includes(d.image_url)) {
+            finalGallery.unshift(d.image_url);
+          }
+
           return {
             id: d.id,
             nome: d.nome || "Produto sem nome",
@@ -111,6 +196,7 @@ export default function ProductsPage() {
             imagem: d.image_url ?? null,
             preco_mensal: preco,
             marca: null,
+            galeria: finalGallery,
           } as CatalogProduct;
         });
 
@@ -125,6 +211,7 @@ export default function ProductsPage() {
             imagem: p.imagem,
             preco_mensal: p.preco24,
             marca: p.marca,
+            galeria: [p.imagem],
           })),
         );
       } finally {
@@ -174,40 +261,7 @@ export default function ProductsPage() {
               </div>
             )}
             {!loading && filtered.map((product) => (
-              <div key={product.id} className="group rounded-2xl border border-border bg-card overflow-hidden transition-all hover:shadow-lg">
-                <div className="aspect-square overflow-hidden bg-secondary relative">
-                  <img
-                    src={product.imagem || "/assets/placeholder.png"}
-                    alt={product.nome}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-5">
-                  <span className="text-xs font-medium uppercase tracking-wider text-primary mb-1">
-                    {product.categoria === "Iphone" ? "Celular" : product.categoria}
-                  </span>
-                  <h3 className="font-display text-lg font-semibold leading-tight line-clamp-2 min-h-[3rem]">
-                    {product.nome}
-                  </h3>
-                  <div className="mt-4 pt-2">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-sm text-muted-foreground">a partir de</span>
-                  <span className="font-display text-xl font-bold text-primary">
-                    {product.preco_mensal != null
-                      ? `R$ ${Number(product.preco_mensal).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}`
-                      : "Indisponível"}
-                  </span>
-                  <span className="text-sm text-muted-foreground">/mês</span>
-                </div>
-                <Button className="mt-4 w-full h-12 text-base font-medium" asChild>
-                  <Link to={`/checkout/${product.id}`}>Assinar</Link>
-                </Button>
-                  </div>
-                </div>
-              </div>
+              <ProductCard key={product.id} product={product} />
             ))}
             {!loading && filtered.length === 0 && (
               <div className="col-span-full text-center text-muted-foreground">Nenhum produto encontrado</div>
