@@ -80,7 +80,7 @@ export default function CheckoutPayment() {
     }
 
     // Ensure CPF is clean and valid
-    let cleanCpf = cpfDigits.replace(/\D/g, "");
+    const cleanCpf = cpfDigits.replace(/\D/g, "");
     
     // Fetch user profile data to ensure we have the correct email and name associated with the CPF
     const { data: profileData } = await supabase
@@ -231,7 +231,7 @@ export default function CheckoutPayment() {
         status: pdata.status === "approved" ? "Pago" : "Pendente",
         metodo: paymentMethod === "BOLETO" ? "pix" : "cartao",
         cliente_nome: info.nome,
-        cliente_cpf: info.cpf,
+        cliente_cpf: cleanCpf,
         cliente_email: info.email,
         cliente_telefone: info.telefone,
         entrega_endereco: address.entrega,
@@ -252,7 +252,7 @@ export default function CheckoutPayment() {
         await supabase.from("orders").insert({
           cliente: payerName,
           email: info.email || payerEmail || null,
-          cpf: info.cpf || cleanCpf || null,
+          cpf: cleanCpf || null,
           telefone: info.telefone || null,
           produto: product.nome,
           plano: info.plano,
