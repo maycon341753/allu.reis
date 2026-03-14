@@ -13,6 +13,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [foundProfile, setFoundProfile] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<12 | 24 | 36>(24);
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
@@ -95,6 +96,24 @@ export default function Checkout() {
 
   useEffect(() => {
     const run = async () => {
+      // Check if user is logged in and pre-fill data
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("id, full_name, phone, email, nascimento, cpf")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (prof) {
+          setFoundProfile(prof);
+          if (prof.full_name) setNome(String(prof.full_name));
+          if (prof.phone) setTelefone(formatPhone(String(prof.phone)));
+          if (prof.email) setEmail(String(prof.email || user.email || ""));
+          if (prof.nascimento) setNascimento(fmtISOToPT(String(prof.nascimento)));
+          if (prof.cpf) setCpf(formatCPF(String(prof.cpf)));
+        }
+      }
+
       if (!id) return;
       const { data } = await supabase
         .from("products")
@@ -157,21 +176,17 @@ export default function Checkout() {
     try {
       const { data: prof } = await supabase
         .from("profiles")
-        .select("full_name, phone, email, nascimento")
+        .select("id, full_name, phone, email, nascimento")
         .eq("cpf", digits)
         .maybeSingle();
       if (prof) {
+        setFoundProfile(prof);
         if (prof.full_name) setNome(String(prof.full_name));
         if (prof.phone) setTelefone(formatPhone(String(prof.phone)));
         if (prof.email) setEmail(String(prof.email));
         if (prof.nascimento) setNascimento(fmtISOToPT(String(prof.nascimento)));
       } else {
-        // Se não encontrar o CPF, limpamos os campos para evitar mistura de dados
-        // mas apenas se o usuário não tiver digitado nada manualmente ainda?
-        // Melhor limpar para garantir que não fique dados de outro CPF
-        // Mas se ele estiver digitando...
-        // Vamos manter o comportamento de NÃO limpar se não achar, para não apagar o que ele digitou antes de terminar o CPF.
-        // O requisito diz: "caso nao tenha cadastro deixar com que o usuario preencha normalmente"
+        setFoundProfile(null);
       }
     } catch {}
   };
@@ -181,18 +196,22 @@ export default function Checkout() {
     const cpfDigits = onlyDigits(cpf);
     if (!cpfDigits || cpfDigits.length !== 11) return;
     try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("full_name, phone, email, nascimento")
-        .eq("cpf", cpfDigits)
-        .maybeSingle();
+      // Check if we have profile data (either from lookup or login)
+      const prof = foundProfile;
       
       const nm = nome || String(prof?.full_name || "");
       const em = email || String(prof?.email || "");
       const tel = telefone || formatPhone(String(prof?.phone || ""));
       const nasc = nascimento || fmtISOToPT(String(prof?.nascimento || ""));
       
-      if (!nm || !em || !tel || !nasc) return;
+      if (!nm || !em || !tel || !nasc) {
+        toast({ title: "Preencha todos os campos", description: "Nome, e-mail, telefone e nascimento são obrigatórios." });
+        return;
+      }
+
+      // Check if user is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+
       const info = {
         nome: nm,
         cpf: cpfDigits,
@@ -202,13 +221,14 @@ export default function Checkout() {
         plano,
         cupom,
         total,
+        user_id: prof?.id || user?.id || null, // Link profile id or logged user id
       };
       
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify(info));
       } catch {}
 
-      if (!prof) {
+      if (!prof && !user) {
         navigate(`/cadastro?next=${encodeURIComponent(`/checkout/${id}/endereco`)}`);
         return;
       }

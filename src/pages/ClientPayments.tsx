@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
+import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/cliente" },
@@ -14,7 +16,12 @@ const menuItems = [
 
 export default function ClientPayments() {
   const location = useLocation();
-  const [rows, setRows] = useState<Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso"; raw: any }>>([]);
+  const [stats, setStats] = useState({ pagas: 0, pendentes: 0, total: 0 });
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+
   useEffect(() => {
     const run = async () => {
       const { data: auth } = await supabase.auth.getUser();
@@ -23,169 +30,77 @@ export default function ClientPayments() {
         setRows([]);
         return;
       }
-      // Buscar contratos aprovados/ativos do usuário
-      // Se não achar por user_id, tenta buscar pelo CPF do usuário (fallback)
-      const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
-      const cpfClean = profile?.cpf ? String(profile.cpf).replace(/\D/g, "") : null;
+      
+      const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+      setProfile(prof);
+      const userName = prof?.full_name;
+      const cpfClean = prof?.cpf ? String(prof.cpf).replace(/\D/g, "") : null;
 
-      let { data: contratos } = await supabase
-        .from("contratos")
-        .select("id, produto, plano, valor, created_at, status")
-        .eq("user_id", uid)
-        .in("status", ["Ativo", "Aprovado", "Em análise", "Pendente"]) // Incluir pendentes para mostrar 1a parcela
-        .order("created_at", { ascending: true });
-        
-      if ((!contratos || !contratos.length) && cpfClean) {
-         // Fallback: buscar contratos pelo CPF caso user_id não tenha vínculo
-         const { data: contratosCpf } = await supabase
-          .from("contratos")
-          .select("id, produto, plano, valor, created_at, status")
-          .eq("cliente", (await supabase.from("profiles").select("full_name").eq("id", uid).single()).data?.full_name) // Tentativa por nome se não tiver CPF na tabela contratos (ideal seria ter cpf na tabela contratos)
-          // Na verdade, melhor buscar pagamentos diretos pelo CPF se não tiver contrato
-          // Mas aqui a lógica depende de contratos.
-          // Vamos tentar buscar contratos onde cliente tem esse CPF indiretamente? Difícil.
-          // Vamos manter a busca por user_id e assumir que o fix SQL resolveu.
-          // Mas podemos buscar pagamentos "órfãos" pelo CPF e exibi-los mesmo sem contrato vinculado.
-          .in("status", ["Ativo", "Aprovado", "Em análise", "Pendente"]);
-          
-          // Se não achou contrato, vamos buscar pagamentos diretos pelo CPF para não deixar vazio
-      }
-
-      // Buscar pagamentos diretos pelo CPF (para garantir que a 1a parcela apareça mesmo sem contrato aprovado)
+      // 1. Buscar pagamentos reais encontrados na tabela payments
       let directPayments: any[] = [];
-      if (cpfClean) {
-        const { data: dps } = await supabase
+      if (uid || cpfClean || userName) {
+        let q = supabase
           .from("payments")
-          .select("id, produto, valor, created_at, status, vencimento")
-          .eq("cliente_cpf", cpfClean)
-          .order("created_at", { ascending: true });
+          .select("*");
+        
+        const filters = [];
+        if (cpfClean) filters.push(`cliente_cpf.eq.${cpfClean}`);
+        if (userName) filters.push(`cliente.eq.${userName}`);
+        
+        if (filters.length > 0) {
+          q = q.or(filters.join(","));
+        } else {
+          setRows([]);
+          return;
+        }
+
+        const { data: dps } = await q.order("vencimento", { ascending: true });
         directPayments = dps || [];
       }
 
-      // Se tiver pagamentos diretos, usamos eles como fonte da verdade para o histórico financeiro
-      // Isso é mais seguro que projetar parcelas futuras de contratos que podem não estar sincronizados
-      // Porém, a lógica original projetava parcelas futuras (vencimentos).
-      // Vamos mesclar: Mostrar pagamentos REAIS (realizados/gerados) + Projetar futuros apenas se tiver contrato ativo.
-      
-      const out: Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }> = [];
-      const fmtBRL = (v: number) =>
-        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-      const fmtPt = (iso: string) => {
-        if (!iso) return "—";
-        const [y, m, d] = iso.split("T")[0].split("-");
-        return `${d}/${m}/${y}`;
-      };
+      const formatBRL = (v: any) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0));
 
-      // 1. Adicionar pagamentos reais encontrados na tabela payments
-      const paidIds = new Set<string>();
-      directPayments.forEach(p => {
-        const dStr = fmtPt(p.vencimento || p.created_at);
-        out.push({
-          data: dStr,
-          produto: p.produto || "Assinatura",
-          valor: fmtBRL(Number(p.valor)),
-          status: p.status === "approved" || p.status === "Pago" ? "Pago" : "Pendente"
-        });
-        // Tentar identificar se esse pagamento corresponde a alguma parcela do contrato
-        // Chave composta aproximada: produto + mês/ano
-        const dateObj = new Date(p.vencimento || p.created_at);
-        const key = `${p.produto}|${dateObj.getMonth()}|${dateObj.getFullYear()}`;
-        paidIds.add(key);
-      });
-
-      // 2. Projetar parcelas futuras baseadas nos contratos ativos
-      if (contratos && contratos.length > 0) {
-        const subs = contratos.map((c: any) => ({
-          id: Number(c.id),
-          produto: c.produto || "",
-          plano: String(c.plano || "12m"),
-          valor: Number(c.valor ?? 0),
-          created_at: c.created_at as string | null,
-        }));
-
-        const monthsFromPlano = (p: string) => {
-          const m = parseInt(String(p).replace(/[^\d]/g, ""), 10);
-          return Number.isFinite(m) && m > 0 ? m : 12;
-        };
-        const addMonths = (iso: string | null, n: number) => {
-          const base = iso ? new Date(iso) : new Date();
-          const d = new Date(base.getTime());
-          d.setMonth(d.getMonth() + n);
-          const yyyy = d.getFullYear();
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        };
-        
-        const today = new Date();
-        
-        subs.forEach((s) => {
-          const total = monthsFromPlano(s.plano);
-          // Começa do mês 1 (próximo mês após assinatura? Ou mês 0 se for entrada?)
-          // Geralmente a entrada já está em directPayments. Vamos projetar a partir do mês 1.
-          // Se a entrada (mês 0) já foi paga, ela está em directPayments.
-          // Vamos assumir que parcelas são mês a mês a partir da data de criação.
-          
-          for (let i = 0; i < total; i++) {
-             // i=0 é a entrada/primeira parcela.
-             // Se i=0, data é a data de criação.
-             // Se i>0, data é created_at + i meses.
-             const vencIso = addMonths(s.created_at, i);
-             const dObj = new Date(vencIso);
-             const key = `${s.produto}|${dObj.getMonth()}|${dObj.getFullYear()}`;
-             
-             // Se já existe pagamento real para este mês/produto, não projeta pendente
-             if (paidIds.has(key)) continue;
-             
-             // Se não existe, projeta como Pendente ou Atrasado
-             let status: "Pago" | "Pendente" | "Em atraso" = "Pendente";
-             if (dObj.getTime() < today.getTime()) {
-                // Se a data já passou e não tem pagamento registrado:
-                // Pode ser que o pagamento real tenha data ligeiramente diferente?
-                // Ou realmente está atrasado.
-                // Vamos ser conservadores: se for muito antigo (> 5 dias), atrasado.
-                const diffDays = (today.getTime() - dObj.getTime()) / (1000 * 3600 * 24);
-                if (diffDays > 5) status = "Em atraso";
-             }
-             
-             out.push({
-               data: fmtPt(vencIso),
-               produto: s.produto,
-               valor: fmtBRL(s.valor),
-               status,
-             });
-          }
-        });
-      }
-      
-      // Ordenar por data desc (mais recente primeiro)
-      out.sort((a, b) => {
-        const da = a.data.split("/").reverse().join("-");
-        const db = b.data.split("/").reverse().join("-");
-        return da < db ? 1 : -1;
-      });
-      
-      setRows(out);
-      return; // Interrompe para não rodar a lógica antiga duplicada
-      
-      /* Lógica antiga desativada em favor da busca direta em payments */
-      /*
-      const subs = (contratos || []).map((c: any) => ({
-        id: Number(c.id),
-        produto: c.produto || "",
-        plano: String(c.plano || "12m"),
-        valor: Number(c.valor ?? 0),
-        created_at: c.created_at as string | null,
+      // 2. Mapear os pagamentos encontrados
+      const out = directPayments.map((p: any) => ({
+        id: p.id,
+        data: p.vencimento ? new Date(p.vencimento).toLocaleDateString("pt-BR") : new Date(p.created_at).toLocaleDateString("pt-BR"),
+        produto: p.produto || "Mensalidade",
+        valor: formatBRL(p.valor),
+        status: (p.status === "approved" || p.status === "Pago" ? "Pago" : p.status) as "Pago" | "Pendente" | "Em atraso",
+        raw: p
       }));
-      if (!subs.length) {
-        setRows([]);
-        return;
-      }
-      // ...
-      */
+
+      // Ordenar por data asc (próximas a vencer em cima)
+      out.sort((a, b) => {
+        const da = new Date(a.data.split("/").reverse().join("-")).getTime();
+        const db = new Date(b.data.split("/").reverse().join("-")).getTime();
+        return da - db;
+      });
+
+      // 3. Calcular contadores para os módulos de resumo
+      const totalPagas = out.filter((p) => p.status === "Pago").length;
+      const totalPendentes = out.filter((p) => p.status === "Pendente" || p.status === "Em atraso").length;
+      const totalGeral = out.length;
+
+      setRows(out);
+      setStats({
+        pagas: totalPagas,
+        pendentes: totalPendentes,
+        total: totalGeral,
+      });
     };
     run();
   }, []);
+
+  const openReceipt = (payment: any) => {
+    setSelectedPayment(payment);
+    setReceiptOpen(true);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -222,14 +137,22 @@ export default function ClientPayments() {
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-8">
+      <main className="flex-1 p-6 md:p-8 pb-24 md:pb-8">
         <h1 className="font-display text-2xl font-bold">Pagamentos</h1>
         <p className="mt-1 text-muted-foreground">Veja cobranças, status e recibos.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Resumo</p>
-            <p className="mt-1 font-display text-2xl font-bold">—</p>
+            <p className="text-sm text-muted-foreground">Pagos</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.pagas}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Pendentes</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.pendentes}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="mt-1 font-display text-2xl font-bold">{stats.total}</p>
           </div>
         </div>
 
@@ -264,7 +187,11 @@ export default function ClientPayments() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors">
+                    <button 
+                      onClick={() => openReceipt(row)}
+                      disabled={row.status !== "Pago"}
+                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                    >
                       Recibo
                     </button>
                   </td>
@@ -287,7 +214,9 @@ export default function ClientPayments() {
             <div key={i} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-3">
               <div className="flex justify-between items-start">
                 <div className="font-semibold text-foreground">{row.produto}</div>
-                <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  row.status === "Pago" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"
+                }`}>
                   {row.status}
                 </span>
               </div>
@@ -297,7 +226,11 @@ export default function ClientPayments() {
                 <div className="text-sm text-muted-foreground">{row.data}</div>
               </div>
               
-              <button className="w-full rounded-lg bg-secondary px-3 py-2 text-xs font-medium hover:bg-secondary/80 transition-colors mt-2">
+              <button 
+                onClick={() => openReceipt(row)}
+                disabled={row.status !== "Pago"}
+                className="w-full rounded-lg bg-secondary px-3 py-2 text-xs font-medium hover:bg-secondary/80 transition-colors mt-2 disabled:opacity-50"
+              >
                 Recibo
               </button>
             </div>
@@ -307,6 +240,86 @@ export default function ClientPayments() {
           )}
         </div>
       </main>
+
+      {/* Modal de Recibo Profissional */}
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-none bg-white">
+          <div className="p-8 md:p-12 print:p-0 receipt-content text-black">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start border-b-2 border-primary pb-6 mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-primary">allu.reis</h2>
+                <p className="text-sm text-gray-600 mt-1">Soluções em Aluguéis de Dispositivos</p>
+                <p className="text-xs text-gray-500 mt-2 font-bold uppercase tracking-tighter">CNPJ: 00.000.000/0001-00</p>
+              </div>
+              <div className="text-right">
+                <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">Nº de Controle</p>
+                  <p className="text-xl font-mono font-bold text-primary">
+                    #{selectedPayment?.raw?.id?.slice(0, 8).toUpperCase() || "00000000"}
+                  </p>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase">Emitido em {new Date().toLocaleDateString("pt-BR")}</p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-8">
+              <div className="text-center">
+                <h3 className="text-3xl font-display font-bold uppercase tracking-[0.2em] text-gray-800">Recibo</h3>
+                <div className="h-1.5 w-24 bg-primary mx-auto mt-2"></div>
+              </div>
+
+              <div className="bg-gray-50 p-8 rounded-2xl space-y-6 border border-gray-100 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
+                
+                <p className="text-lg leading-relaxed text-gray-700">
+                  Recebemos de <span className="font-bold text-gray-900">{profile?.full_name || selectedPayment?.raw?.cliente}</span>, 
+                  inscrito no CPF <span className="font-bold text-gray-900">{profile?.cpf || selectedPayment?.raw?.cliente_cpf}</span>, 
+                  a importância de:
+                </p>
+                
+                <div className="bg-white border-2 border-dashed border-primary/30 p-6 text-center rounded-xl shadow-sm">
+                  <span className="text-5xl font-bold text-primary tracking-tighter">{selectedPayment?.valor}</span>
+                </div>
+                
+                <p className="text-base text-gray-600">
+                  Referente ao pagamento do aluguel: <span className="font-bold text-gray-800">{selectedPayment?.produto}</span>
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-12 text-sm px-4">
+                <div>
+                  <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mb-2">Data do Pagamento</p>
+                  <p className="font-bold text-gray-900 text-lg">{selectedPayment?.data}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mb-2">Forma de Pagamento</p>
+                  <p className="font-bold text-gray-900 text-lg capitalize">{selectedPayment?.raw?.metodo || "Transferência"}</p>
+                </div>
+              </div>
+
+              {/* Assinatura */}
+              <div className="pt-16 pb-4">
+                <div className="flex flex-col items-center">
+                  <div className="w-72 border-b border-gray-300 mb-3"></div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em]">allu.reis - Departamento Financeiro</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-6 flex justify-end gap-3 border-t border-gray-100 print:hidden">
+            <Button variant="ghost" onClick={() => setReceiptOpen(false)} className="font-bold uppercase text-[10px] tracking-widest">
+              Fechar
+            </Button>
+            <Button onClick={handlePrint} className="gap-2 px-8 font-bold uppercase text-[10px] tracking-widest">
+              <Printer className="h-4 w-4" />
+              Imprimir Recibo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

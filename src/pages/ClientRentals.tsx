@@ -41,29 +41,30 @@ export default function ClientRentals() {
         setPending([]);
         return;
       }
-      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", uid).maybeSingle();
+      const { data: profile } = await supabase.from("profiles").select("full_name, cpf").eq("id", uid).maybeSingle();
       const userName = profile?.full_name;
+      const userCpf = profile?.cpf ? String(profile.cpf).replace(/\D/g, "") : null;
 
       let query = supabase
         .from("contratos")
-        .select("id, produto, plano, valor, status, created_at, user_id")
-        .order("created_at", { descending: true })
-        .limit(20);
+        .select("id, produto, plano, valor, status, created_at, user_id, cliente, cliente_cpf")
+        .order("created_at", { descending: true });
 
-      if (userName) {
-        query = query.or(`user_id.eq.${uid},cliente.eq.${userName}`);
-      } else {
-        query = query.eq("user_id", uid);
-      }
+      // Busca robusta: por ID, por CPF ou por Nome
+      const filters = [`user_id.eq.${uid}`];
+      if (userCpf) filters.push(`cliente_cpf.eq.${userCpf}`);
+      if (userName) filters.push(`cliente.eq.${userName}`);
+      
+      query = query.or(filters.join(","));
       
       const { data, error } = await query;
       if (!error && data) {
-        const approved = data.filter((d: any) => d.status === "Aprovado" || d.status === "Ativo");
+        const approved = data.filter((d: any) => d.status?.toLowerCase() === "aprovado" || d.status?.toLowerCase() === "ativo");
         const pend = data.filter((d: any) => 
-          d.status === "Em análise" || 
-          d.status === "Em analise" || 
-          d.status === "Pendente" ||
-          d.status === "Aguardando aprovação"
+          d.status?.toLowerCase() === "em análise" || 
+          d.status?.toLowerCase() === "em analise" || 
+          d.status?.toLowerCase() === "pendente" ||
+          d.status?.toLowerCase() === "aguardando aprovação"
         );
         setRows(
           approved.map((d: any) => ({

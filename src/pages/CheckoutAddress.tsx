@@ -89,11 +89,82 @@ export default function CheckoutAddress() {
 
   const goToPayment = async () => {
     if (!product || !info) return;
-    if (!entrega || !residencial || !cep || !bairro || !cidade || !estado) return;
+    if (!entrega || !residencial || !cep || !bairro || !cidade || !estado) {
+      alert("Preencha todos os campos obrigatórios do endereço.");
+      return;
+    }
+    
+    setLoading(true);
     const addr = { entrega, residencial, cep, complemento, bairro, cidade, estado };
     try {
       localStorage.setItem("addressInfo", JSON.stringify(addr));
-    } catch {}
+      
+      // Pre-create the payment record as "Pendente" so it shows up in the client panel
+      const cpfDigits = String(info.cpf || "").replace(/\D/g, "");
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id || info.user_id || null;
+
+      let rawAmount = info.total ?? product.preco_mensal ?? 0;
+      if (typeof rawAmount === "string") {
+        rawAmount = rawAmount.replace("R$", "").replace("/mês", "").trim().replace(",", ".");
+      }
+      const amount = Number(rawAmount);
+
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 3);
+      const venc = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
+
+      // Insert into payments table
+      await supabase.from("payments").insert({
+        produto: product.nome,
+        categoria: product.categoria,
+        plano: info.plano,
+        total_mensal: info.total ?? product.preco_mensal ?? "",
+        valor: amount,
+        vencimento: venc,
+        cliente: info.nome,
+        status: "Pendente",
+        metodo: "pix",
+        cliente_nome: info.nome,
+        cliente_cpf: cpfDigits,
+        cliente_email: info.email,
+        cliente_telefone: info.telefone,
+        entrega_endereco: entrega,
+        residencial_endereco: residencial,
+        cep: cep,
+        complemento: complemento,
+        bairro: bairro,
+        cidade: cidade,
+        estado: estado,
+        provider: "mercadopago",
+        user_id: uid
+      });
+
+      // Also create an order for admin tracking
+      await supabase.from("orders").insert({
+        cliente: info.nome,
+        email: info.email,
+        cpf: cpfDigits,
+        telefone: info.telefone,
+        produto: product.nome,
+        plano: info.plano,
+        valor_mensal: String(amount),
+        forma_pagamento: "PIX",
+        status: "Em análise",
+        user_id: uid,
+        cep: cep,
+        logradouro: entrega,
+        bairro: bairro,
+        cidade: cidade,
+        estado: estado,
+      });
+
+    } catch (err) {
+      console.error("Error pre-creating payment:", err);
+    } finally {
+      setLoading(false);
+    }
+
     navigate(`/checkout/${id}/pagamento`);
   };
 
