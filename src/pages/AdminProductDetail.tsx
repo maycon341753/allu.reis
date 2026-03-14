@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
@@ -30,7 +31,9 @@ const menuItems = [
 
 export default function AdminProductDetail() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { id } = useParams();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [p, setP] = useState<any>(null);
@@ -60,8 +63,27 @@ export default function AdminProductDetail() {
   const [logs, setLogs] = useState<Array<{ id: string; acao: string; descricao?: string; data: string }>>([]);
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user, requireAuth]);
+
+  useEffect(() => {
     const run = async () => {
-      if (!id) return;
+      if (authLoading || !user || !id) return;
+
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.is_admin) {
+        navigate("/cliente");
+        return;
+      }
+
       setLoading(true);
       try {
         const { data: prod, error: prodError } = await supabase
@@ -126,7 +148,7 @@ export default function AdminProductDetail() {
       }
     };
     run();
-  }, [id]);
+  }, [id, user, authLoading, navigate]);
 
   const toNumberFromBR = (v: string) => {
     const cleaned = v.replace(/\u00A0/g, " ").replace(/R\$/g, "").replace(/\s+/g, "");
@@ -380,9 +402,15 @@ export default function AdminProductDetail() {
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

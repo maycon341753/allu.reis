@@ -64,7 +64,7 @@ export default function AdminDocuments() {
     if (!authLoading) {
       requireAuth();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, requireAuth]);
 
   useEffect(() => {
     const run = async () => {
@@ -144,7 +144,7 @@ export default function AdminDocuments() {
       }
     };
     run();
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   const updateStatus = async (row: DocRow, status: DocRow["status"]) => {
     const prev = rows.slice();

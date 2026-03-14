@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
 
@@ -39,6 +40,8 @@ type SettingsRow = {
 
 export default function AdminConfig() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [s, setS] = useState<SettingsRow>({
@@ -52,22 +55,41 @@ export default function AdminConfig() {
   });
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user, requireAuth]);
+
+  useEffect(() => {
     const run = async () => {
+      if (authLoading || !user) return;
+
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.is_admin) {
+        navigate("/cliente");
+        return;
+      }
+
       const { data, error } = await supabase.from("settings").select("*").eq("id", "global").maybeSingle();
       if (!error && data) {
         setS({
           id: data.id ?? "global",
-          company_name: data.company_name ?? s.company_name,
-          company_cnpj: data.company_cnpj ?? s.company_cnpj,
-          support_email: data.support_email ?? s.support_email,
+          company_name: data.company_name ?? "allu.reis",
+          company_cnpj: data.company_cnpj ?? "39.433.448/0001-34",
+          support_email: data.support_email ?? "suporte@allu.reis",
           require_email_confirmation: !!data.require_email_confirmation,
-          contract_base: data.contract_base ?? s.contract_base,
+          contract_base: data.contract_base ?? "Base de contrato padrão da allu.reis. Ajuste cláusulas conforme necessidade e legislação aplicável.",
         });
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user, authLoading, navigate]);
 
   const save = async () => {
     setLoading(true);
@@ -118,9 +140,15 @@ export default function AdminConfig() {
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 
