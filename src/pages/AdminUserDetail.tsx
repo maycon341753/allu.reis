@@ -46,13 +46,40 @@ export default function AdminUserDetail() {
       setLoading(true);
       try {
         const { data: p } = await supabase.from("profiles").select("id, full_name, email, cpf, phone, status, created_at").eq("id", id).maybeSingle();
-        setProfile(p || null);
+        let merged = p || null;
         setStatus(p?.status || "Ativo");
         const { data: d } = await supabase.from("documents").select("id, tipo, status, url, updated_at").eq("user_id", id).limit(100);
         setDocs(d || []);
         const { data: c } = await supabase.from("contratos").select("id, produto, plano, valor, status").eq("user_id", id).limit(50);
         setContracts(c || []);
         const cpfDigits = String(p?.cpf || "").replace(/\D/g, "");
+        // Fallback: se o e-mail do perfil estiver vazio, tenta pegar do último pagamento
+        if (merged && !merged.email && cpfDigits) {
+          const { data: lastPay } = await supabase
+            .from("payments")
+            .select("cliente_email")
+            .eq("cliente_cpf", cpfDigits)
+            .order("created_at", { descending: true })
+            .limit(1)
+            .maybeSingle();
+          if (lastPay?.cliente_email) {
+            merged = { ...merged, email: lastPay.cliente_email };
+          }
+        }
+        // Fallback 2: tenta pegar do último pedido (orders) do usuário
+        if (merged && !merged.email) {
+          const { data: lastOrder } = await supabase
+            .from("orders")
+            .select("email")
+            .eq("user_id", id)
+            .order("id", { descending: true })
+            .limit(1)
+            .maybeSingle();
+          if (lastOrder?.email) {
+            merged = { ...merged, email: lastOrder.email };
+          }
+        }
+        setProfile(merged);
         const { data: pay } = await supabase.from("payments").select("id, vencimento, valor, status, forma").eq("cliente_cpf", cpfDigits).limit(50);
         setPayments(pay || []);
         const { data: lg } = await supabase.from("user_logs").select("id, acao, data, descricao").eq("user_id", id).order("data", { descending: true }).limit(100);
