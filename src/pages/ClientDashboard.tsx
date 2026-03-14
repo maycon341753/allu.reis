@@ -4,8 +4,16 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   LayoutDashboard, Package, CreditCard, FileText, 
-  Headphones, UserCircle, LogOut 
+  Headphones, UserCircle, LogOut, Calendar, Tag, Shield
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/cliente" },
@@ -30,6 +38,8 @@ export default function ClientDashboard() {
   const [proximasCobrancasLista, setProximasCobrancasLista] = useState<string[]>([]);
   const [clientName, setClientName] = useState<string>("");
   const [accountApproved, setAccountApproved] = useState<boolean>(false);
+  const [selectedRental, setSelectedRental] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -277,12 +287,15 @@ export default function ClientDashboard() {
                       </div>
                     )}
                   </div>
-                  <Link 
-                    to="/cliente/alugueis" 
+                  <button 
+                    onClick={() => {
+                      setSelectedRental(item);
+                      setIsModalOpen(true);
+                    }}
                     className="mt-4 inline-block text-xs font-medium text-primary hover:underline"
                   >
                     Ver detalhes do aluguel
-                  </Link>
+                  </button>
                 </div>
               ))
             ) : (
@@ -293,6 +306,101 @@ export default function ClientDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Modal de Detalhes do Aluguel */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Detalhes do Aluguel</DialogTitle>
+            <DialogDescription>
+              Informações completas sobre seu contrato de locação.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRental && (
+            <div className="mt-4 space-y-6">
+              <div className="flex items-center gap-4 rounded-xl border border-border bg-secondary/20 p-4">
+                {selectedRental.image_url ? (
+                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-background shadow-sm">
+                    <img 
+                      src={selectedRental.image_url} 
+                      alt={selectedRental.produto} 
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground shadow-sm">
+                    <Package size={32} />
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-display font-bold text-foreground">{selectedRental.produto}</h4>
+                  <span className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    ["ativo", "aprovado"].includes(String(selectedRental.status).toLowerCase()) 
+                      ? "bg-green-100 text-green-700" 
+                      : String(selectedRental.status).toLowerCase() === "rejeitado" 
+                      ? "bg-red-100 text-red-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}>
+                    {selectedRental.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Tag size={14} />
+                    <span>Plano</span>
+                  </div>
+                  <p className="text-sm font-medium">{selectedRental.plano || "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Calendar size={14} />
+                    <span>Início do Contrato</span>
+                  </div>
+                  <p className="text-sm font-medium">
+                    {selectedRental.created_at ? new Date(selectedRental.created_at).toLocaleDateString("pt-BR") : "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Shield size={14} />
+                    <span>Status de Verificação</span>
+                  </div>
+                  <p className="text-sm font-medium capitalize">{selectedRental.status}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <FileText size={14} />
+                    <span>ID do Contrato</span>
+                  </div>
+                  <p className="text-sm font-medium text-xs font-mono">{selectedRental.id || "—"}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <Button 
+                  className="w-full" 
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Fechar Detalhes
+                </Button>
+                <button 
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    navigate("/cliente/suporte");
+                  }}
+                  className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Precisa de ajuda com este aluguel? Fale com o suporte
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
