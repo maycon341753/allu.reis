@@ -44,6 +44,8 @@ export default function AdminContracts() {
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<ContractRow | null>(null);
   const [edit, setEdit] = useState<ContractRow & { contractText: string }>({
     id: "",
     cliente: "",
@@ -224,6 +226,21 @@ export default function AdminContracts() {
     }
   };
 
+  const updateContractStatus = async (id: string, newStatus: ContractRow["status"]) => {
+    const { error } = await supabase
+      .from("contratos")
+      .update({ status: newStatus })
+      .eq("id", id);
+    
+    if (error) {
+      toast({ title: "Erro ao atualizar status", description: error.message });
+    } else {
+      setRows((r) => r.map((x) => (x.id === id ? { ...x, status: newStatus } : x)));
+      toast({ title: `Contrato definido como ${newStatus}` });
+      setViewOpen(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-secondary/30">
       <aside className="hidden w-64 flex-col surface-dark md:flex">
@@ -285,7 +302,6 @@ export default function AdminContracts() {
             </thead>
             <tbody>
               {rows
-                .filter((r) => r.status === "Em análise" || r.status === "Pendente")
                 .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">{row.cliente}</td>
@@ -305,8 +321,29 @@ export default function AdminContracts() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" size="sm">Ver</Button>
-                      <Button variant="outline" size="sm">Editar</Button>
+                      <Button 
+                        variant="secondary" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedContract(row);
+                          setViewOpen(true);
+                        }}
+                      >
+                        Ver
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setEdit({
+                            ...row,
+                            contractText: generateContractText(row),
+                          });
+                          setEditOpen(true);
+                        }}
+                      >
+                        Editar
+                      </Button>
                       <Button size="sm" onClick={() => closeContract(row)}>Encerrar</Button>
                       <Button
                         variant="outline"
@@ -339,7 +376,6 @@ export default function AdminContracts() {
         {/* Mobile Cards */}
         <div className="mt-6 grid grid-cols-1 gap-4 md:hidden">
             {rows
-                .filter((r) => r.status === "Em análise" || r.status === "Pendente")
                 .map((row) => (
                 <div key={row.id} className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
                     <div className="flex justify-between items-start">
@@ -362,8 +398,31 @@ export default function AdminContracts() {
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 mt-2">
-                        <Button variant="secondary" size="sm" className="w-full">Ver</Button>
-                        <Button variant="outline" size="sm" className="w-full">Editar</Button>
+                        <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => {
+                                setSelectedContract(row);
+                                setViewOpen(true);
+                            }}
+                        >
+                            Ver
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => {
+                                setEdit({
+                                    ...row,
+                                    contractText: generateContractText(row),
+                                });
+                                setEditOpen(true);
+                            }}
+                        >
+                            Editar
+                        </Button>
                         <Button size="sm" onClick={() => closeContract(row)} className="w-full">Encerrar</Button>
                         <Button
                             variant="outline"
@@ -439,6 +498,72 @@ export default function AdminContracts() {
                 <Button variant="outline" onClick={saveContract}>Salvar alterações</Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Detalhes do Contrato */}
+        <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Contrato</DialogTitle>
+              <DialogDescription>
+                Revise as informações e altere o status do contrato.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedContract && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-muted-foreground">Cliente:</div>
+                  <div className="font-medium">{selectedContract.cliente}</div>
+                  <div className="text-muted-foreground">Produto:</div>
+                  <div className="font-medium">{selectedContract.produto}</div>
+                  <div className="text-muted-foreground">Plano:</div>
+                  <div className="font-medium">{selectedContract.plano}</div>
+                  <div className="text-muted-foreground">Valor Mensal:</div>
+                  <div className="font-medium">{formatBRL(selectedContract.valor_mensal)}</div>
+                  <div className="text-muted-foreground">Status Atual:</div>
+                  <div>
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      selectedContract.status === "Ativo"
+                        ? "bg-primary/10 text-primary"
+                        : (selectedContract.status === "Pendente" || selectedContract.status === "Em análise")
+                        ? "bg-yellow-500/10 text-yellow-600"
+                        : "bg-secondary text-foreground"
+                    }`}>
+                      {selectedContract.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 mt-4">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">Ações de Status</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Button 
+                      variant="success" 
+                      onClick={() => updateContractStatus(selectedContract.id, "Ativo")}
+                      className="w-full"
+                    >
+                      Aprovar
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => updateContractStatus(selectedContract.id, "Encerrado")}
+                      className="w-full"
+                    >
+                      Rejeitar
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => updateContractStatus(selectedContract.id, "Em análise")}
+                      className="w-full"
+                    >
+                      Em análise
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </main>

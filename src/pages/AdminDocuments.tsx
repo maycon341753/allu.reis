@@ -3,13 +3,21 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
-  BarChart3, Settings, LogOut
+  BarChart3, Settings, LogOut, AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -46,6 +54,8 @@ export default function AdminDocuments() {
   const [countPend, setCountPend] = useState<string>("—");
   const [countApr, setCountApr] = useState<string>("—");
   const [countRej, setCountRej] = useState<string>("—");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<DocRow | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -125,10 +135,10 @@ export default function AdminDocuments() {
     }
   };
 
-  const deleteDocument = async (row: DocRow) => {
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir o anexo deste documento? O status será alterado para Rejeitado.");
-    if (!confirmDelete) return;
+  const deleteDocument = async () => {
+    if (!docToDelete) return;
 
+    const row = docToDelete;
     const prev = rows.slice();
     setRows((r) => r.map((x) => (x.id === row.id ? { ...x, url: null, status: "Rejeitado" } : x)));
     
@@ -143,6 +153,13 @@ export default function AdminDocuments() {
     } else {
       toast({ title: "Anexo excluído e status alterado para Rejeitado" });
     }
+    setDeleteModalOpen(false);
+    setDocToDelete(null);
+  };
+
+  const confirmDelete = (row: DocRow) => {
+    setDocToDelete(row);
+    setDeleteModalOpen(true);
   };
 
   const openUrl = (url?: string | null) => {
@@ -261,7 +278,7 @@ export default function AdminDocuments() {
                     <div className="flex gap-2">
                       <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)} disabled={!row.url}>Ver</Button>
                       <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => deleteDocument(row)}>Excluir</Button>
+                      <Button variant="destructive" size="sm" onClick={() => confirmDelete(row)}>Excluir</Button>
                     </div>
                   </td>
                 </tr>
@@ -313,7 +330,7 @@ export default function AdminDocuments() {
               <div className="grid grid-cols-3 gap-2 mt-2">
                 <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)} disabled={!row.url}>Ver</Button>
                 <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
-                <Button variant="destructive" size="sm" onClick={() => deleteDocument(row)}>Excluir</Button>
+                <Button variant="destructive" size="sm" onClick={() => confirmDelete(row)}>Excluir</Button>
               </div>
             </div>
           ))}
@@ -321,6 +338,31 @@ export default function AdminDocuments() {
              <div className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</div>
           )}
         </div>
+
+        {/* Modal de Confirmação de Exclusão */}
+        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <div className="flex items-center gap-3 text-destructive mb-2">
+                <AlertTriangle size={24} />
+                <DialogTitle>Confirmar Exclusão</DialogTitle>
+              </div>
+              <DialogDescription className="text-base">
+                Tem certeza que deseja excluir o anexo deste documento? 
+                <br /><br />
+                O arquivo será removido permanentemente e o status do documento será alterado para <span className="font-bold text-red-600 uppercase">Rejeitado</span>.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-6 flex gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={deleteDocument}>
+                Sim, Excluir Anexo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
