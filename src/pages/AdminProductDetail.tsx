@@ -61,6 +61,9 @@ export default function AdminProductDetail() {
   const [devSerial, setDevSerial] = useState("");
   const [devStatus, setDevStatus] = useState("disponivel");
   const [logs, setLogs] = useState<Array<{ id: string; acao: string; descricao?: string; data: string }>>([]);
+  const [storages, setStorages] = useState<Array<{ id: string; capacity: string; price_adjustment: number }>>([]);
+  const [newStorageCapacity, setNewStorageCapacity] = useState("");
+  const [newStoragePrice, setNewStoragePrice] = useState("");
 
   useEffect(() => {
     const run = async () => {
@@ -105,6 +108,14 @@ export default function AdminProductDetail() {
           .select("id, spec_name, spec_value")
           .eq("product_id", id);
         setSpecs((sp || []).map((s: any) => ({ id: s.id, name: s.spec_name, value: s.spec_value })));
+        
+        const { data: st } = await supabase
+          .from("product_storage_options")
+          .select("id, capacity, price_adjustment")
+          .eq("product_id", id)
+          .order("capacity", { ascending: true });
+        setStorages(st || []);
+
         const { data: rules } = await supabase
           .from("product_rules")
           .select("permitir_boleto, valor_maximo_boleto")
@@ -309,6 +320,33 @@ export default function AdminProductDetail() {
       setSpecs(prev);
     } else {
       await logAction("Especificação", "Removida");
+    }
+  };
+  const addStorage = async () => {
+    if (!id || !newStorageCapacity) return;
+    const adj = parseBRL(newStoragePrice) || 0;
+    const { data, error } = await supabase
+      .from("product_storage_options")
+      .insert({ product_id: id, capacity: newStorageCapacity, price_adjustment: adj })
+      .select("*")
+      .single();
+    if (error) {
+      toast({ title: "Erro ao adicionar armazenamento", description: error.message });
+      return;
+    }
+    setStorages((s) => [...s, { id: data.id, capacity: data.capacity, price_adjustment: data.price_adjustment }]);
+    setNewStorageCapacity("");
+    setNewStoragePrice("");
+    await logAction("Armazenamento", `Adicionado: ${data.capacity}`);
+  };
+  const removeStorage = async (stId: string) => {
+    const prev = storages.slice();
+    setStorages((s) => s.filter((x) => x.id !== stId));
+    const { error } = await supabase.from("product_storage_options").delete().eq("id", stId);
+    if (error) {
+      setStorages(prev);
+    } else {
+      await logAction("Armazenamento", "Removido");
     }
   };
   const saveRules = async () => {
@@ -599,6 +637,26 @@ export default function AdminProductDetail() {
                   </div>
                 ))}
                 {specs.length === 0 && <div className="text-sm text-muted-foreground">Sem especificações</div>}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Armazenamento</p>
+            <div className="mt-3 grid gap-3">
+              <div><Label>Capacidade</Label><Input value={newStorageCapacity} onChange={(e) => setNewStorageCapacity(e.target.value)} className="mt-1" placeholder="Ex: 128GB" /></div>
+              <div><Label>Ajuste de preço (opcional)</Label><Input value={newStoragePrice} onChange={(e) => setNewStoragePrice(formatBRL(e.target.value))} className="mt-1" placeholder="R$ 0,00" /></div>
+              <Button className="mt-2" onClick={addStorage}>Adicionar</Button>
+              <div className="mt-3 space-y-2 max-h-[240px] overflow-auto">
+                {storages.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between rounded-lg border border-border p-2">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{s.capacity}</span>
+                      {s.price_adjustment !== 0 && <span className="text-xs text-muted-foreground">Ajuste: {formatBRL(String(s.price_adjustment))}</span>}
+                    </div>
+                    <Button size="sm" variant="destructive" onClick={() => removeStorage(s.id)}>Remover</Button>
+                  </div>
+                ))}
+                {storages.length === 0 && <div className="text-sm text-muted-foreground">Sem opções de armazenamento</div>}
               </div>
             </div>
           </div>

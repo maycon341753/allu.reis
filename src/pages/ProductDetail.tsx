@@ -2,20 +2,70 @@ import { useParams, Link } from "react-router-dom";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
-import { mockProducts } from "@/data/products";
+import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Check, CreditCard, FileText } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const product = mockProducts.find((p) => p.id === id);
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<12 | 24 | 36>(24);
+  const [storages, setStorages] = useState<Array<{ id: string; capacity: string; price_adjustment: number }>>([]);
+  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+
   const formatBRL = (v: any) => {
     if (v == null) return "—";
     const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
     if (isNaN(n)) return String(v);
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
   };
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+      try {
+        const { data: prod } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+        
+        if (prod) {
+          setProduct(prod);
+          
+          const { data: st } = await supabase
+            .from("product_storage_options")
+            .select("id, capacity, price_adjustment")
+            .eq("product_id", id)
+            .order("capacity", { ascending: true });
+          
+          const options = st || [];
+          setStorages(options);
+          if (options.length > 0) {
+            setSelectedStorage(options[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar produto:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container flex items-center justify-center py-32">
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -29,7 +79,12 @@ export default function ProductDetail() {
     );
   }
 
-  const prices = { 12: product.preco12, 24: product.preco24, 36: product.preco36 };
+  const storageAdjustment = storages.find(s => s.id === selectedStorage)?.price_adjustment || 0;
+  const prices = { 
+    12: (product.preco12 || 0) + storageAdjustment, 
+    24: (product.preco24 || 0) + storageAdjustment, 
+    36: (product.preco36 || 0) + storageAdjustment 
+  };
   const currentPrice = prices[selectedPlan];
 
   return (
@@ -44,7 +99,7 @@ export default function ProductDetail() {
           <div className="grid gap-12 lg:grid-cols-2">
             {/* Image */}
             <div className="overflow-hidden rounded-2xl bg-secondary">
-              <img src={product.imagem} alt={product.nome} className="w-full aspect-square object-cover" />
+              <img src={product.image_url} alt={product.nome} className="w-full aspect-square object-cover" />
             </div>
 
             {/* Info */}
@@ -53,17 +108,27 @@ export default function ProductDetail() {
               <h1 className="mt-2 font-display text-3xl font-bold md:text-4xl">{product.nome}</h1>
               <p className="mt-4 text-muted-foreground">{product.descricao}</p>
 
-              {/* Specs */}
-              <div className="mt-6">
-                <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">Especificações</h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {product.especificacoes.map((spec) => (
-                    <span key={spec} className="rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground">
-                      {spec}
-                    </span>
-                  ))}
+              {/* Storage Selection */}
+              {storages.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">Armazenamento</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {storages.map((st) => (
+                      <button
+                        key={st.id}
+                        onClick={() => setSelectedStorage(st.id)}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+                          selectedStorage === st.id
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {st.capacity}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Plans */}
               <div className="mt-8">
