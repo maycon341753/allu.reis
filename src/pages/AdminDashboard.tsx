@@ -26,10 +26,10 @@ const menuItems = [
 export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
   const [payments, setPayments] = useState<Array<{ cliente: string; valor: string; status: string; metodo: string; data: string | null }>>([]);
-  const [finance, setFinance] = useState<{ recebidoMes: string; pendentes: string }>({ recebidoMes: "—", pendentes: "—" });
+  const [finance, setFinance] = useState<{ recebidoMes: string; pendentes: string }>({ recebidoMes: "R$ 0,00", pendentes: "0" });
   const [stats, setStats] = useState<{
     users: string;
     products: string;
@@ -38,63 +38,56 @@ export default function AdminDashboard() {
     pagamentos: string;
     documentos: string;
   }>({
-    users: "—",
-    products: "—",
-    pedidos: "—",
-    contratos: "—",
-    pagamentos: "—",
-    documentos: "—",
+    users: "0",
+    products: "0",
+    pedidos: "0",
+    contratos: "0",
+    pagamentos: "0",
+    documentos: "0",
   });
   const runningRef = useRef(false);
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
+      if (authLoading || !user || isAdmin !== true) return;
       
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
-
       if (runningRef.current) return;
       runningRef.current = true;
 
       try {
-        const { data, error } = await supabase
+        const { data: orderData, error: orderError } = await supabase
           .from("orders")
           .select("cliente, produto, plano, status")
           .order("id", { descending: true })
           .limit(10);
-        if (!error && data) {
-          setOrders(
-            data.map((d: any) => ({
-              cliente: d.cliente || "",
-              produto: d.produto || "",
-              plano: d.plano || "",
-              status: d.status || "",
-            })),
-          );
-        } else {
-          setOrders([]);
-        }
-        const countExact = async (table: string, eq?: { col: string; val: any }, schemaSelect?: string) => {
+        
+        if (orderError) console.error("Erro ao carregar pedidos:", orderError);
+        
+        setOrders(
+          (orderData || []).map((d: any) => ({
+            cliente: d.cliente || "",
+            produto: d.produto || "",
+            plano: d.plano || "",
+            status: d.status || "",
+          })),
+        );
+
+        const countExact = async (table: string, eq?: { col: string; val: any }) => {
           try {
-            let q = supabase.from(table).select(schemaSelect || "*", { count: "exact", head: true });
+            let q = supabase.from(table).select("id", { count: "exact", head: true });
             if (eq) q = q.eq(eq.col, eq.val);
             const { count, error: cErr } = await q;
-            if (cErr) return "—";
+            if (cErr) {
+              console.error(`Erro contagem ${table}:`, cErr);
+              return "—";
+            }
             return String(count ?? 0);
-          } catch {
+          } catch (e) {
+            console.error(`Exceção contagem ${table}:`, e);
             return "—";
           }
         };
+
         const [users, products, pedidos, contratos, pagamentos, documentos] = await Promise.all([
           countExact("profiles"),
           countExact("products", { col: "status", val: "Ativo" }),
@@ -103,13 +96,17 @@ export default function AdminDashboard() {
           countExact("payments", { col: "status", val: "Pendente" }),
           countExact("documents", { col: "status", val: "Pendente" }),
         ]);
+
         setStats({ users, products, pedidos, contratos, pagamentos, documentos });
-        const { data: pays } = await supabase
+
+        const { data: pays, error: payError } = await supabase
           .from("payments")
           .select("cliente_nome, valor, status, metodo, created_at")
           .order("created_at", { descending: true })
           .limit(100);
         
+        if (payError) console.error("Erro ao carregar pagamentos:", payError);
+
         const allPayRows = (pays || []).map((p: any) => ({
           cliente: p.cliente_nome || "",
           valor: String(p.valor ?? ""),
@@ -118,32 +115,38 @@ export default function AdminDashboard() {
           data: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : null,
         }));
 
-        // Filtra apenas os 5 primeiros pagamentos com status "Pago" para exibição na tabela
-        const displayPayments = allPayRows
-          .filter(p => p.status === "Pago")
-          .slice(0, 5);
-        
-        setPayments(displayPayments);
+        setPayments(allPayRows.filter(p => p.status === "Pago").slice(0, 5));
 
         const now = new Date();
-        const toNumber = (v: string) => {
-          const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
-          return isNaN(n) ? 0 : n;
-        };
+        const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+        const currentYear = now.getFullYear();
 
-        // Cálculo do financeiro baseado nos últimos 100 registros para maior precisão
         const recebido = allPayRows
-          .filter((r) => r.status === "Pago" && (r.data?.endsWith(`/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`) ?? false))
-          .reduce((sum, r) => sum + toNumber(r.valor), 0);
+          .filter((r) => r.status === "Pago" && r.data?.includes(`/${currentMonth}/${currentYear}`))
+          .reduce((sum, r) => {
+            const val = Number(String(r.valor).replace(/[^\d,.-]/g, "").replace(",", "."));
+            return sum + (isNaN(val) ? 0 : val);
+          }, 0);
         
         const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(recebido);
         setFinance({ recebidoMes: fmt, pendentes: pagamentos });
+
+      } catch (globalErr) {
+        console.error("Erro global no dashboard:", globalErr);
       } finally {
         runningRef.current = false;
       }
     };
+
     run();
-  }, [user, isAdmin, authLoading]);
+    
+    // Se não for admin, redirecionar
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, isAdmin, authLoading, navigate]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -178,10 +181,7 @@ export default function AdminDashboard() {
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <LogOut size={18} /> Sair

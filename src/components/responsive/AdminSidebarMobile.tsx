@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, LogOut } from "lucide-react";
@@ -8,7 +8,7 @@ import {
   BarChart3, Settings
 } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -26,13 +26,12 @@ const menuItems = [
 
 export default function AdminSidebarMobile() {
   const location = useLocation();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { logout } = useAuth();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
     setOpen(false);
-    navigate("/login");
+    logout("/login");
   };
 
   return (

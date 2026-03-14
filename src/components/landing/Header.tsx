@@ -8,12 +8,11 @@ import { useAuth } from "@/hooks/useAuth";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+    await logout("/");
   };
 
   return (

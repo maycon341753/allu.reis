@@ -18,7 +18,7 @@ const menuItems = [
 export default function ClientPayments() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [rows, setRows] = useState<Array<{ id: string; data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso"; metodo: string; raw: any }>>([]);
   const [stats, setStats] = useState({ pagas: 0, pendentes: 0, total: 0 });
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -141,10 +141,7 @@ export default function ClientPayments() {
         </nav>
         <div className="border-t border-border p-4">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <LogOut size={18} /> Sair

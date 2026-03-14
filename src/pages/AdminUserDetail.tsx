@@ -32,7 +32,7 @@ export default function AdminUserDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -191,10 +191,7 @@ export default function AdminUserDetail() {
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <LogOut size={18} /> Sair

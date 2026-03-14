@@ -16,7 +16,7 @@ const menuItems = [
 export default function ClientRentals() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [rows, setRows] = useState<Array<{ id: string; produto: string; plano: string; valor: string; restante: string; status: string; image_url?: string }>>([]);
   const [pending, setPending] = useState<Array<{ id: string; produto: string; plano: string; valor: string; status: string; image_url?: string }>>([]);
 
@@ -135,10 +135,7 @@ export default function ClientRentals() {
         </nav>
         <div className="border-t border-border p-4">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <LogOut size={18} /> Sair

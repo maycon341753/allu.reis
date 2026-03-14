@@ -22,7 +22,7 @@ const menuItems = [
 export default function ClientDocuments() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const [uid, setUid] = useState<string | null>(null);
   const [rows, setRows] = useState<Array<{ doc: string; tipo: string; status: string; updated: string; url?: string | null }>>([]);
@@ -157,10 +157,7 @@ export default function ClientDocuments() {
         </nav>
         <div className="border-t border-border p-4">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <LogOut size={18} /> Sair

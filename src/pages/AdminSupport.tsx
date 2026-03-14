@@ -41,7 +41,7 @@ type TicketRow = {
 export default function AdminSupport() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<TicketRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -74,19 +74,7 @@ export default function AdminSupport() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
 
       setLoading(true);
       const { data, error } = await supabase
@@ -117,7 +105,13 @@ export default function AdminSupport() {
       setLoading(false);
     };
     run();
-  }, [user, authLoading, isAdmin]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, authLoading, isAdmin, navigate]);
 
   const openView = async (ticketId: string) => {
     setViewOpen(true);
@@ -209,10 +203,7 @@ export default function AdminSupport() {
         </nav>
         <div className="border-t border-sidebar-border p-3">
           <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate("/login");
-            }}
+            onClick={() => logout("/login")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <LogOut size={18} /> Sair
