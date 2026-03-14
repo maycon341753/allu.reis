@@ -31,6 +31,7 @@ const menuItems = [
 type ContractRow = {
   id: string;
   cliente: string;
+  cliente_cpf?: string;
   produto: string;
   plano: string;
   valor_mensal: string;
@@ -62,7 +63,7 @@ export default function AdminContracts() {
       try {
         const { data, error } = await supabase
           .from("contratos")
-          .select("id, cliente, produto, plano, valor, status, user_id, created_at")
+          .select("id, cliente, produto, plano, valor, status, user_id, cliente_cpf, created_at")
           .order("created_at", { descending: true })
           .limit(100);
         if (!error) {
@@ -75,6 +76,7 @@ export default function AdminContracts() {
               valor_mensal: d.valor != null ? String(d.valor) : "",
               status: (d.status as ContractRow["status"]) || "Em análise",
               user_id: d.user_id ?? null,
+              cliente_cpf: d.cliente_cpf || "",
             }))
           );
         }

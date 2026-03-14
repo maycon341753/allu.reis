@@ -15,8 +15,8 @@ const menuItems = [
 export default function ClientRentals() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [rows, setRows] = useState<Array<{ id: string; produto: string; plano: string; valor: string; restante: string; status: string }>>([]);
-  const [pending, setPending] = useState<Array<{ id: string; produto: string; plano: string; valor: string; status: string }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; produto: string; plano: string; valor: string; restante: string; status: string; image_url?: string }>>([]);
+  const [pending, setPending] = useState<Array<{ id: string; produto: string; plano: string; valor: string; status: string; image_url?: string }>>([]);
   const formatBRL = (v: any) =>
     v != null
       ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(String(v).replace(",", ".")))
@@ -47,13 +47,13 @@ export default function ClientRentals() {
 
       let query = supabase
         .from("contratos")
-        .select("id, produto, plano, valor, status, created_at, user_id, cliente, cliente_cpf")
+        .select("id, produto, plano, valor, status, created_at, user_id, cliente, cliente_cpf, image_url")
         .order("created_at", { descending: true });
 
       // Busca robusta: por ID, por CPF ou por Nome
       const filters = [`user_id.eq.${uid}`];
       if (userCpf) filters.push(`cliente_cpf.eq.${userCpf}`);
-      if (userName) filters.push(`cliente.eq.${userName}`);
+      if (userName) filters.push(`cliente.eq."${userName}"`);
       
       query = query.or(filters.join(","));
       
@@ -74,6 +74,7 @@ export default function ClientRentals() {
             valor: d.valor,
             restante: calcRestante(d.plano, d.created_at),
             status: d.status || "Aprovado",
+            image_url: d.image_url,
           })),
         );
         setPending(
@@ -83,6 +84,7 @@ export default function ClientRentals() {
             plano: d.plano || "",
             valor: d.valor,
             status: d.status || "Em análise",
+            image_url: d.image_url,
           })),
         );
       } else {
@@ -94,10 +96,6 @@ export default function ClientRentals() {
   }, []);
   const abrirSuporte = () => navigate("/cliente/suporte");
   const solicitarTroca = () => navigate("/cliente/suporte");
-  const cancelarContrato = async (id: string) => {
-    await supabase.from("contratos").update({ status: "Encerrado" }).eq("id", id);
-    window.location.reload();
-  };
 
   return (
     <div className="flex min-h-screen bg-secondary/30">
@@ -144,15 +142,28 @@ export default function ClientRentals() {
             {pending.length > 0 ? (
               pending.map((item) => (
                 <div key={item.id} className="rounded-xl border border-border bg-card p-5">
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-display font-semibold">{item.produto}</h3>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${item.status === "Pendente" ? "bg-yellow-500/10 text-yellow-600" : "bg-primary/10 text-primary"}`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                    <p>Plano: {item.plano || "—"}</p>
-                    <p>Valor mensal: {formatBRL(item.valor)}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-display font-semibold">{item.produto}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${item.status === "Pendente" ? "bg-yellow-500/10 text-yellow-600" : "bg-primary/10 text-primary"}`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <p>Plano: {item.plano || "—"}</p>
+                        <p>Valor mensal: {formatBRL(item.valor)}</p>
+                      </div>
+                    </div>
+                    {item.image_url && (
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
+                        <img 
+                          src={item.image_url} 
+                          alt={item.produto} 
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -164,33 +175,49 @@ export default function ClientRentals() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {rows.length > 0 ? (
-            rows.map((rental) => (
-              <div key={rental.id} className="rounded-xl border border-border bg-card p-5">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-display font-semibold">{rental.produto}</h3>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${rental.status === "Aprovado" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"}`}>
-                    {rental.status}
-                  </span>
+        <div className="mt-6">
+          <h2 className="font-display text-lg font-semibold">Aluguéis ativos</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {rows.length > 0 ? (
+              rows.map((rental) => (
+                <div key={rental.id} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-display font-semibold">{rental.produto}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${rental.status.toLowerCase() === "ativo" || rental.status.toLowerCase() === "aprovado" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"}`}>
+                          {rental.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <p>Plano: {rental.plano || "—"}</p>
+                        <p>Valor mensal: {formatBRL(rental.valor)}</p>
+                        <p>Tempo restante: {rental.restante}</p>
+                      </div>
+                    </div>
+                    {rental.image_url && (
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
+                        <img 
+                          src={rental.image_url} 
+                          alt={rental.produto} 
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors" onClick={abrirSuporte}>Abrir suporte</button>
+                    <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors" onClick={solicitarTroca}>Solicitar troca</button>
+                    <button className="rounded-lg bg-destructive text-destructive-foreground px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-colors" onClick={() => navigate("/cliente/suporte")}>Cancelar contrato</button>
+                  </div>
                 </div>
-                <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                  <p>Plano: {rental.plano || "—"}</p>
-                  <p>Valor mensal: {formatBRL(rental.valor)}</p>
-                  <p>Tempo restante: {rental.restante}</p>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <button className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent/80 transition-colors" onClick={abrirSuporte}>Abrir suporte</button>
-                  <button className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80 transition-colors" onClick={solicitarTroca}>Solicitar troca</button>
-                  <button className="rounded-lg bg-destructive text-destructive-foreground px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-colors" onClick={() => cancelarContrato(rental.id)}>Cancelar contrato</button>
-                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+                Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
               </div>
-            ))
-          ) : (
-            <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
-              Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
     </div>

@@ -85,12 +85,12 @@ export default function CheckoutPayment() {
     // Fetch user profile data to ensure we have the correct email and name associated with the CPF
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("email, nome")
+      .select("email, full_name")
       .eq("cpf", cleanCpf)
       .maybeSingle();
 
     const payerEmail = profileData?.email || info.email;
-    const payerName = profileData?.nome || info.nome;
+    const payerName = profileData?.full_name || info.nome;
 
     if (!payerEmail) {
        setLoading(false);
@@ -289,6 +289,8 @@ export default function CheckoutPayment() {
             valor: amount,
             status: "Em análise", // Status inicial até aprovação do admin
             user_id: uid,
+            cliente_cpf: cleanCpf, // Adicionado para garantir visibilidade robusta
+            image_url: product.image_url, // Adicionado para exibir miniatura
           });
         }
       } catch {}

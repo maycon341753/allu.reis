@@ -22,6 +22,7 @@ export default function ClientDashboard() {
   const [proximaCobranca, setProximaCobranca] = useState<string>("—");
   const [produtosAtivos, setProdutosAtivos] = useState<number>(0);
   const [alugadosCount, setAlugadosCount] = useState<number>(0);
+  const [alugadosLista, setAlugadosLista] = useState<any[]>([]);
   const [contratoStatus, setContratoStatus] = useState<string>("—");
   const [proximasCobrancasLista, setProximasCobrancasLista] = useState<string[]>([]);
   const [clientName, setClientName] = useState<string>("");
@@ -70,21 +71,32 @@ export default function ClientDashboard() {
       }
       const { data: contratos } = await supabase
         .from("contratos")
-        .select("status, plano, created_at")
-        .eq("cliente_cpf", cpfDigits)
-        .order("created_at", { descending: false })
+        .select("id, status, plano, produto, created_at, user_id, cliente, cliente_cpf, image_url")
+        .or(`user_id.eq.${uid}${cpfDigits ? `,cliente_cpf.eq.${cpfDigits}` : ""}${profile?.full_name ? `,cliente.eq."${profile.full_name}"` : ""}`)
+        .order("created_at", { descending: true })
         .limit(50);
-      const ativos = (contratos || []).filter((c: any) => 
-        String(c.status).toLowerCase() === "aprovado" || 
-        String(c.status).toLowerCase() === "ativo"
+      
+      // Mostrar todos os contratos relevantes (Ativo, Aprovado, Em análise, Rejeitado)
+      const allowedStatusList = ["ativo", "aprovado", "em análise", "em analise", "rejeitado", "pendente", "aguardando aprovação", "aguardando aprovacao"];
+      const displayList = (contratos || []).filter((c: any) => 
+        allowedStatusList.includes(String(c.status).toLowerCase())
       );
-      setProdutosAtivos(ativos.length);
-      setAlugadosCount(ativos.length);
+      
+      const ativosOnly = displayList.filter((c: any) => String(c.status).toLowerCase() === "ativo");
+      
+      setProdutosAtivos(ativosOnly.length);
+      setAlugadosCount(ativosOnly.length);
+      setAlugadosLista(ativosOnly);
+      
       const statusResumo =
         contratos && contratos.length
-          ? [...new Set(contratos.map((c: any) => c.status))].join(", ")
+          ? [...new Set(
+              contratos
+                .filter((c: any) => allowedStatusList.includes(String(c.status).toLowerCase()))
+                .map((c: any) => c.status)
+            )].join(", ")
           : "—";
-      setContratoStatus(statusResumo);
+      setContratoStatus(statusResumo || "—");
       setProximasCobrancasLista(
         pendentes.slice(0, 3).map((p: any) => {
           const s = p.vencimento;
@@ -96,7 +108,7 @@ export default function ClientDashboard() {
           return `${dd}/${mm}/${yy}`;
         }),
       );
-      const alvo = ativos[0] || null;
+      const alvo = ativosOnly[0] || null;
       if (alvo?.plano && alvo?.created_at) {
         const total = parseInt(String(alvo.plano).replace("m", "")) || 0;
         const start = new Date(alvo.created_at);
@@ -217,8 +229,52 @@ export default function ClientDashboard() {
         {/* Aluguéis */}
         <div className="mt-8">
           <h2 className="font-display text-lg font-semibold">Produtos alugados</h2>
-          <div className="mt-4 rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
-            Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {alugadosLista.length > 0 ? (
+              alugadosLista.map((item, i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-display font-semibold">{item.produto}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          ["ativo", "aprovado"].includes(String(item.status).toLowerCase()) 
+                            ? "bg-green-100 text-green-700" 
+                            : String(item.status).toLowerCase() === "rejeitado" 
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <p>Plano: {item.plano || "—"}</p>
+                        <p>Status: <span className="capitalize">{item.status}</span></p>
+                      </div>
+                    </div>
+                    {item.image_url && (
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-secondary">
+                        <img 
+                          src={item.image_url} 
+                          alt={item.produto} 
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <Link 
+                    to="/cliente/alugueis" 
+                    className="mt-4 inline-block text-xs font-medium text-primary hover:underline"
+                  >
+                    Ver detalhes do aluguel
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+                Nenhum aluguel encontrado. Assim que seu contrato for aprovado, os aluguéis aparecerão aqui.
+              </div>
+            )}
           </div>
         </div>
       </main>

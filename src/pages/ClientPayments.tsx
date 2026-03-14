@@ -45,7 +45,7 @@ export default function ClientPayments() {
         
         const filters = [];
         if (cpfClean) filters.push(`cliente_cpf.eq.${cpfClean}`);
-        if (userName) filters.push(`cliente.eq.${userName}`);
+        if (userName) filters.push(`cliente.eq."${userName}"`);
         
         if (filters.length > 0) {
           q = q.or(filters.join(","));
