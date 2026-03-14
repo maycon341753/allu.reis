@@ -61,19 +61,8 @@ export default function AdminContracts() {
   });
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
-      
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
 
       setLoading(true);
       try {
@@ -101,7 +90,13 @@ export default function AdminContracts() {
       }
     };
     run();
-  }, [user, authLoading, navigate, isAdmin]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [authLoading, user, isAdmin, navigate]);
 
   const closeContract = async (row: ContractRow) => {
     const prev = rows.slice();

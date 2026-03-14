@@ -62,19 +62,7 @@ export default function AdminDocuments() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
 
       setLoading(true);
       try {
@@ -100,45 +88,32 @@ export default function AdminDocuments() {
               profileMap[p.id] = { full_name: p.full_name || "", cpf: p.cpf || "" };
             });
           }
-          const fmtCpf = (cpf: string) => {
-            const d = String(cpf || "").replace(/\D/g, "").slice(0, 11);
-            if (d.length !== 11) return d || "—";
-            return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-          };
           setRows(
             docs.map((d) => ({
               ...d,
-              cliente_nome: d.user_id ? profileMap[d.user_id]?.full_name || null : null,
-              cliente_cpf: d.user_id ? fmtCpf(profileMap[d.user_id]?.cpf || "") : null,
+              cliente_nome: profileMap[d.user_id || ""]?.full_name || "Desconhecido",
+              cliente_cpf: profileMap[d.user_id || ""]?.cpf || "—",
             }))
           );
-          // Contagens por status (consultas com count: 'exact')
-          const countExact = async (status: "Pendente" | "Aprovado" | "Rejeitado") => {
-            try {
-              const { count } = await supabase
-                .from("documents")
-                .select("*", { count: "exact", head: true })
-                .eq("status", status);
-              return String(count ?? 0);
-            } catch {
-              return "—";
-            }
-          };
-          const [p, a, r] = await Promise.all([
-            countExact("Pendente"),
-            countExact("Aprovado"),
-            countExact("Rejeitado"),
-          ]);
-          setCountPend(p);
-          setCountApr(a);
-          setCountRej(r);
         }
+        const { count: p } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "Pendente");
+        const { count: a } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "Aprovado");
+        const { count: r } = await supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "Rejeitado");
+        setCountPend(String(p ?? 0));
+        setCountApr(String(a ?? 0));
+        setCountRej(String(r ?? 0));
       } finally {
         setLoading(false);
       }
     };
     run();
-  }, [user, authLoading, isAdmin]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, authLoading, isAdmin, navigate]);
 
   const updateStatus = async (row: DocRow, status: DocRow["status"]) => {
     const prev = rows.slice();

@@ -45,19 +45,7 @@ export default function AdminCredit() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
 
       setLoading(true);
       try {
@@ -82,7 +70,13 @@ export default function AdminCredit() {
       }
     };
     run();
-  }, [user, authLoading, isAdmin]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, authLoading, isAdmin, navigate]);
 
   const updateStatus = async (row: CreditRow, status: CreditRow["status"]) => {
     const prev = rows.slice();

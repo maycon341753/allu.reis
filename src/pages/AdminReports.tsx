@@ -30,22 +30,16 @@ export default function AdminReports() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
     };
     run();
-  }, [user, isAdmin, authLoading]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [user, isAdmin, authLoading, navigate]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">

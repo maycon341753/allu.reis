@@ -72,12 +72,6 @@ export default function AdminOrders() {
   const [codigo, setCodigo] = useState("");
   const [shipOrderId, setShipOrderId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
   const statusBadgeClass = (s: string) => {
     const k = (s || "").toLowerCase().trim();
     if (k === "aprovado" || k === "ativo") return "bg-primary/10 text-primary";
@@ -90,12 +84,7 @@ export default function AdminOrders() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
-      
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || isAdmin !== true) return;
 
       setLoading(true);
       try {
@@ -134,6 +123,12 @@ export default function AdminOrders() {
       }
     };
     run();
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
   }, [authLoading, user, isAdmin, navigate]);
 
   const updateStatus = async (row: OrderRow, status: string) => {

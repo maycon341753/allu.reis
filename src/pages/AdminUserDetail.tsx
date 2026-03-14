@@ -45,19 +45,7 @@ export default function AdminUserDetail() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading) return;
-
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      if (isAdmin === null) return;
-
-      if (isAdmin === false) {
-        navigate("/cliente");
-        return;
-      }
+      if (authLoading || !user || !id || isAdmin !== true) return;
 
       setLoading(true);
       try {
@@ -105,7 +93,13 @@ export default function AdminUserDetail() {
       }
     };
     run();
-  }, [id, user, authLoading, isAdmin]);
+
+    if (!authLoading && user && isAdmin === false) {
+      navigate("/cliente");
+    } else if (!authLoading && !user) {
+      navigate("/login");
+    }
+  }, [id, user, authLoading, isAdmin, navigate]);
 
   const updateStatus = async () => {
     if (!id) return;
