@@ -69,6 +69,16 @@ export default function AdminOrders() {
   const [codigo, setCodigo] = useState("");
   const [shipOrderId, setShipOrderId] = useState<string | null>(null);
 
+  const statusBadgeClass = (s: string) => {
+    const k = (s || "").toLowerCase().trim();
+    if (k === "aprovado" || k === "ativo") return "bg-primary/10 text-primary";
+    if (k === "em análise" || k === "em analise" || k === "pendente" || k === "aguardando aprovação")
+      return "bg-yellow-500/10 text-yellow-600";
+    if (k === "enviado" || k === "em envio" || k === "postado") return "bg-blue-500/10 text-blue-600";
+    if (k === "cancelado" || k === "recusado") return "bg-red-500/10 text-red-600";
+    return "bg-secondary text-foreground";
+  };
+
   useEffect(() => {
     const run = async () => {
       setLoading(true);
@@ -242,19 +252,7 @@ export default function AdminOrders() {
                     <td className="px-4 py-3 text-muted-foreground">{row.plano}</td>
                     <td className="px-4 py-3 text-muted-foreground">{row.forma_pagamento || "—"}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          row.status === "Aprovado"
-                            ? "bg-primary/10 text-primary"
-                            : row.status === "Em análise"
-                            ? "bg-yellow-500/10 text-yellow-600"
-                            : row.status === "Enviado"
-                            ? "bg-blue-500/10 text-blue-600"
-                            : row.status === "Cancelado"
-                            ? "bg-red-500/10 text-red-600"
-                            : "bg-secondary text-foreground"
-                        }`}
-                      >
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}>
                         {row.status}
                       </span>
                     </td>
@@ -297,19 +295,7 @@ export default function AdminOrders() {
                     <h3 className="font-medium text-base">{row.cliente}</h3>
                     <p className="text-sm text-muted-foreground">{row.produto}</p>
                   </div>
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      row.status === "Aprovado"
-                        ? "bg-primary/10 text-primary"
-                        : row.status === "Em análise"
-                        ? "bg-yellow-500/10 text-yellow-600"
-                        : row.status === "Enviado"
-                        ? "bg-blue-500/10 text-blue-600"
-                        : row.status === "Cancelado"
-                        ? "bg-red-500/10 text-red-600"
-                        : "bg-secondary text-foreground"
-                    }`}
-                  >
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}>
                     {row.status}
                   </span>
                 </div>
