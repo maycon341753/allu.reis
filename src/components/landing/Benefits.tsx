@@ -11,7 +11,7 @@ const benefits = [
 
 export function Benefits() {
   return (
-    <section className="surface-dark py-20 md:py-28">
+    <section id="beneficios" className="surface-dark py-20 md:py-28">
       <div className="container">
         <div className="text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-primary">Vantagens</span>

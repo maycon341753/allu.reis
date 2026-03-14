@@ -19,26 +19,15 @@ export default function SignupPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Garantir que os campos estejam limpos ao carregar/atualizar a página
+    setName("");
+    setEmail("");
+    setCpf("");
+    setPhoneInput("");
+    
+    // Opcional: Limpar dados temporários do checkout se existirem
     try {
-      const saved = localStorage.getItem("checkoutInfo");
-      if (saved) {
-        const obj = JSON.parse(saved);
-        if (obj.nome) setName(obj.nome);
-        if (obj.email) setEmail(obj.email);
-        if (obj.telefone) setPhoneInput(obj.telefone);
-        if (obj.cpf) {
-          const d = String(obj.cpf || "").replace(/\D/g, "");
-          const v =
-            d.length <= 3
-              ? d
-              : d.length <= 6
-              ? `${d.slice(0, 3)}.${d.slice(3)}`
-              : d.length <= 9
-              ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
-              : `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
-          setCpf(v);
-        }
-      }
+      localStorage.removeItem("checkoutInfo");
     } catch {}
   }, []);
 
