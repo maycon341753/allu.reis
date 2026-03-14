@@ -1,10 +1,16 @@
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { 
+  LayoutDashboard, Package, CreditCard, FileText, 
+  Headphones, UserCircle, LogOut, Send, Plus, 
+  MessageSquare, Clock, CheckCircle2
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const menuItems = [
@@ -18,6 +24,9 @@ const menuItems = [
 
 export default function ClientSupport() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { toast } = useToast();
   const [rows, setRows] = useState<Array<{ id: string; assunto: string; status: string; updated: string }>>([]);
   const [openCount, setOpenCount] = useState<number>(0);
   const [resolvedCount, setResolvedCount] = useState<number>(0);
@@ -35,13 +44,15 @@ export default function ClientSupport() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     const run = async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
-      if (!uid) {
-        setRows([]);
-        return;
-      }
+      if (authLoading || !user) return;
+      const uid = user.id;
       const { data, error } = await supabase
         .from("support_tickets")
         .select("id, subject, status, updated_at, created_at")
@@ -275,9 +286,15 @@ export default function ClientSupport() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

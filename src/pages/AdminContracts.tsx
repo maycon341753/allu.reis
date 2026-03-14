@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
   CreditCard, FolderOpen, ShieldCheck, Headphones,
@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +42,8 @@ type ContractRow = {
 
 export default function AdminContracts() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,7 +61,27 @@ export default function AdminContracts() {
   });
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     const run = async () => {
+      if (authLoading || !user) return;
+      
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.is_admin) {
+        navigate("/cliente");
+        return;
+      }
+
       setLoading(true);
       try {
         const { data, error } = await supabase
@@ -272,9 +295,15 @@ export default function AdminContracts() {
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

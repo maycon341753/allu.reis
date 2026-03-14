@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut, Mail, Phone as PhoneIcon, IdCard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/cliente" },
@@ -26,6 +27,8 @@ function formatCpf(v: string) {
 
 export default function ClientProfile() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -41,6 +44,13 @@ export default function ClientProfile() {
   const [addrCidade, setAddrCidade] = useState("");
   const [addrEstado, setAddrEstado] = useState("");
   const [addrSaving, setAddrSaving] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
   const formatCEP = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 8);
     const p1 = d.slice(0, 5);
@@ -71,15 +81,13 @@ export default function ClientProfile() {
 
   useEffect(() => {
     const run = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session;
-      if (!session?.user?.id) return;
-      setUid(session.user.id);
-      setEmail(session.user.email || "");
+      if (authLoading || !user) return;
+      setUid(user.id);
+      setEmail(user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name, phone, cpf, endereco_residencial, endereco_entrega, cep, complemento, bairro, cidade, estado")
-        .eq("id", session.user.id)
+        .eq("id", user.id)
         .maybeSingle();
       if (profile) {
         setFullName(profile.full_name || "");
@@ -199,9 +207,15 @@ export default function ClientProfile() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

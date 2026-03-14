@@ -1,8 +1,14 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut, Upload, Eye, Download } from "lucide-react";
+import { 
+  LayoutDashboard, Package, CreditCard, FileText, 
+  Headphones, UserCircle, LogOut, Upload, Eye, Download,
+  CheckCircle2, AlertCircle, Clock
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/cliente" },
@@ -15,8 +21,12 @@ const menuItems = [
 
 export default function ClientDocuments() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { toast } = useToast();
   const [uid, setUid] = useState<string | null>(null);
   const [rows, setRows] = useState<Array<{ doc: string; tipo: string; status: string; updated: string; url?: string | null }>>([]);
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [approved, setApproved] = useState(0);
   const [pending, setPending] = useState(0);
@@ -30,9 +40,16 @@ export default function ClientDocuments() {
   ];
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     const run = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || null;
+      if (authLoading || !user) return;
+      
+      const userId = user.id;
       setUid(userId);
       let docs: any[] = [];
       if (userId) {
@@ -139,9 +156,15 @@ export default function ClientDocuments() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

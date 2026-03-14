@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   LayoutDashboard, Package, CreditCard, FileText, 
   Headphones, UserCircle, LogOut 
@@ -17,6 +18,8 @@ const menuItems = [
 
 export default function ClientDashboard() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const [pagamentosEmDia, setPagamentosEmDia] = useState<string>("—");
   const [mesesRestantes, setMesesRestantes] = useState<string>("—");
   const [proximaCobranca, setProximaCobranca] = useState<string>("—");
@@ -29,10 +32,16 @@ export default function ClientDashboard() {
   const [accountApproved, setAccountApproved] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     const run = async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
-      if (!uid) return;
+      if (authLoading || !user) return;
+      
+      const uid = user.id;
       const { data: profile } = await supabase.from("profiles").select("full_name, cpf").eq("id", uid).maybeSingle();
       setClientName(profile?.full_name || "");
       // Verificar documentos aprovados
@@ -155,9 +164,15 @@ export default function ClientDashboard() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

@@ -1,7 +1,8 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Package, CreditCard, FileText, Headphones, UserCircle, LogOut, Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -16,6 +17,8 @@ const menuItems = [
 
 export default function ClientPayments() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const [rows, setRows] = useState<Array<{ id: string; data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso"; metodo: string; raw: any }>>([]);
   const [stats, setStats] = useState({ pagas: 0, pendentes: 0, total: 0 });
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -23,14 +26,19 @@ export default function ClientPayments() {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
+  useEffect(() => {
     const run = async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
-      if (!uid) {
+      if (authLoading || !user) {
         setRows([]);
         return;
       }
       
+      const uid = user.id;
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
       setProfile(prof);
       const userName = prof?.full_name;
@@ -132,9 +140,15 @@ export default function ClientPayments() {
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+          >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

@@ -5,9 +5,12 @@ export default function BottomNav() {
   const location = useLocation();
   const path = location.pathname;
 
-  // Só mostrar em rotas de cliente ou públicas principais
-  // Evitar mostrar em login, cadastro, admin, checkout
-  if (path.startsWith("/admin") || path.startsWith("/checkout") || path === "/login" || path === "/cadastro") {
+  // Só mostrar em rotas de cliente (Meus Aluguéis, Pagamentos, Perfil)
+  // Ocultar na Home ("/"), Produtos, Login, Cadastro, Admin, Checkout
+  const isClientRoute = path.startsWith("/cliente") && 
+                       (path.includes("/alugueis") || path.includes("/pagamentos") || path.includes("/perfil"));
+
+  if (!isClientRoute || path.startsWith("/admin") || path.startsWith("/checkout") || path === "/login" || path === "/cadastro" || path === "/") {
     return null;
   }
 
