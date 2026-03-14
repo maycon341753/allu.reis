@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Lock, User, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,23 +17,19 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { user, isAdmin, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    // Se o usuário já estiver logado, redirecionar automaticamente
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", session.user.id)
-          .maybeSingle();
-        
-        navigate(profile?.is_admin ? "/admin" : "/cliente");
+    // Se o usuário já estiver logado e o status de admin estiver carregado
+    if (!authLoading && user) {
+      const next = searchParams.get("next");
+      if (next) {
+        navigate(next);
+      } else {
+        navigate(isAdmin ? "/admin" : "/cliente");
       }
-    };
-    checkUser();
-  }, [navigate]);
+    }
+  }, [user, isAdmin, authLoading, navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,28 +45,28 @@ export default function LoginPage() {
         password,
       });
       if (error) throw error;
-      const uid = data.user?.id || data.session?.user?.id;
-      let isAdmin = false;
+      
+      // Forçar verificação de admin imediata após login bem-sucedido
+      const uid = data.user?.id;
       if (uid) {
-        const { data: profile, error: profErr } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("is_admin")
           .eq("id", uid)
           .maybeSingle();
-        if (!profErr && profile && typeof profile.is_admin === "boolean") {
-          isAdmin = profile.is_admin;
+        
+        const isUserAdmin = !!profile?.is_admin;
+        toast({ title: "Login realizado", description: isUserAdmin ? "Bem-vindo, administrador" : "Bem-vindo!" });
+        
+        const next = searchParams.get("next");
+        if (next) {
+          navigate(next);
+        } else {
+          navigate(isUserAdmin ? "/admin" : "/cliente");
         }
-      }
-      toast({ title: "Login realizado", description: isAdmin ? "Bem-vindo, administrador" : "Bem-vindo!" });
-      const next = searchParams.get("next");
-      if (next) {
-        navigate(next);
-      } else {
-        navigate(isAdmin ? "/admin" : "/cliente");
       }
     } catch (err: any) {
       toast({ title: "Erro ao entrar", description: err?.message || "Tente novamente" });
-    } finally {
       setLoading(false);
     }
   };
