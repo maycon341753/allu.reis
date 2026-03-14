@@ -24,13 +24,25 @@ export default function ClientDashboard() {
   const [alugadosCount, setAlugadosCount] = useState<number>(0);
   const [contratoStatus, setContratoStatus] = useState<string>("—");
   const [proximasCobrancasLista, setProximasCobrancasLista] = useState<string[]>([]);
+  const [clientName, setClientName] = useState<string>("");
+  const [accountApproved, setAccountApproved] = useState<boolean>(false);
 
   useEffect(() => {
     const run = async () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
       if (!uid) return;
-      const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
+      const { data: profile } = await supabase.from("profiles").select("full_name, cpf").eq("id", uid).maybeSingle();
+      setClientName(profile?.full_name || "");
+      // Verificar documentos aprovados
+      try {
+        const { data: docs } = await supabase.from("documents").select("status").eq("user_id", uid);
+        const hasDocs = Array.isArray(docs) && docs.length > 0;
+        const docsOk = hasDocs && docs.every((d: any) => String(d.status).toLowerCase() === "aprovado");
+        setAccountApproved(!!docsOk);
+      } catch {
+        setAccountApproved(false);
+      }
       const cpfDigits = String(profile?.cpf || "").replace(/\D/g, "");
       const { data: pays } = await supabase
         .from("payments")
@@ -136,7 +148,7 @@ export default function ClientDashboard() {
       {/* Main */}
       <main className="flex-1 p-6 md:p-8">
         <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-        <p className="mt-1 text-muted-foreground">Bem-vindo!</p>
+        <p className="mt-1 text-muted-foreground">Bem-vindo{clientName ? `, ${clientName}` : ""}!</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-5">
@@ -152,8 +164,28 @@ export default function ClientDashboard() {
             <p className="mt-1 font-display text-2xl font-bold">{proximaCobranca}</p>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-sm text-muted-foreground">Produtos ativos</p>
-            <p className="mt-1 font-display text-2xl font-bold">{produtosAtivos}</p>
+            {accountApproved ? (
+              <>
+                <p className="text-sm text-muted-foreground">Status da conta</p>
+                <p className="mt-1 font-display text-2xl font-bold text-green-600">Aprovado</p>
+                <Link to="/cliente/pagamentos" className="mt-2 inline-block text-xs text-primary hover:underline">
+                  Ver pagamentos
+                </Link>
+              </>
+            ) : produtosAtivos > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">Produtos ativos</p>
+                <p className="mt-1 font-display text-2xl font-bold">{produtosAtivos}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">Status da conta</p>
+                <p className="mt-1 font-display text-2xl font-bold text-yellow-600">Em análise</p>
+                <Link to="/cliente/documentos" className="mt-2 inline-block text-xs text-primary hover:underline">
+                  Envie seus documentos
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

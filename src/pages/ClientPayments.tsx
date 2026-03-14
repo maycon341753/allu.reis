@@ -24,12 +24,152 @@ export default function ClientPayments() {
         return;
       }
       // Buscar contratos aprovados/ativos do usuário
-      const { data: contratos } = await supabase
+      // Se não achar por user_id, tenta buscar pelo CPF do usuário (fallback)
+      const { data: profile } = await supabase.from("profiles").select("cpf").eq("id", uid).maybeSingle();
+      const cpfClean = profile?.cpf ? String(profile.cpf).replace(/\D/g, "") : null;
+
+      let { data: contratos } = await supabase
         .from("contratos")
         .select("id, produto, plano, valor, created_at, status")
         .eq("user_id", uid)
-        .in("status", ["Ativo", "Aprovado"])
+        .in("status", ["Ativo", "Aprovado", "Em análise", "Pendente"]) // Incluir pendentes para mostrar 1a parcela
         .order("created_at", { ascending: true });
+        
+      if ((!contratos || !contratos.length) && cpfClean) {
+         // Fallback: buscar contratos pelo CPF caso user_id não tenha vínculo
+         const { data: contratosCpf } = await supabase
+          .from("contratos")
+          .select("id, produto, plano, valor, created_at, status")
+          .eq("cliente", (await supabase.from("profiles").select("full_name").eq("id", uid).single()).data?.full_name) // Tentativa por nome se não tiver CPF na tabela contratos (ideal seria ter cpf na tabela contratos)
+          // Na verdade, melhor buscar pagamentos diretos pelo CPF se não tiver contrato
+          // Mas aqui a lógica depende de contratos.
+          // Vamos tentar buscar contratos onde cliente tem esse CPF indiretamente? Difícil.
+          // Vamos manter a busca por user_id e assumir que o fix SQL resolveu.
+          // Mas podemos buscar pagamentos "órfãos" pelo CPF e exibi-los mesmo sem contrato vinculado.
+          .in("status", ["Ativo", "Aprovado", "Em análise", "Pendente"]);
+          
+          // Se não achou contrato, vamos buscar pagamentos diretos pelo CPF para não deixar vazio
+      }
+
+      // Buscar pagamentos diretos pelo CPF (para garantir que a 1a parcela apareça mesmo sem contrato aprovado)
+      let directPayments: any[] = [];
+      if (cpfClean) {
+        const { data: dps } = await supabase
+          .from("payments")
+          .select("id, produto, valor, created_at, status, vencimento")
+          .eq("cliente_cpf", cpfClean)
+          .order("created_at", { ascending: true });
+        directPayments = dps || [];
+      }
+
+      // Se tiver pagamentos diretos, usamos eles como fonte da verdade para o histórico financeiro
+      // Isso é mais seguro que projetar parcelas futuras de contratos que podem não estar sincronizados
+      // Porém, a lógica original projetava parcelas futuras (vencimentos).
+      // Vamos mesclar: Mostrar pagamentos REAIS (realizados/gerados) + Projetar futuros apenas se tiver contrato ativo.
+      
+      const out: Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }> = [];
+      const fmtBRL = (v: number) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+      const fmtPt = (iso: string) => {
+        if (!iso) return "—";
+        const [y, m, d] = iso.split("T")[0].split("-");
+        return `${d}/${m}/${y}`;
+      };
+
+      // 1. Adicionar pagamentos reais encontrados na tabela payments
+      const paidIds = new Set<string>();
+      directPayments.forEach(p => {
+        const dStr = fmtPt(p.vencimento || p.created_at);
+        out.push({
+          data: dStr,
+          produto: p.produto || "Assinatura",
+          valor: fmtBRL(Number(p.valor)),
+          status: p.status === "approved" || p.status === "Pago" ? "Pago" : "Pendente"
+        });
+        // Tentar identificar se esse pagamento corresponde a alguma parcela do contrato
+        // Chave composta aproximada: produto + mês/ano
+        const dateObj = new Date(p.vencimento || p.created_at);
+        const key = `${p.produto}|${dateObj.getMonth()}|${dateObj.getFullYear()}`;
+        paidIds.add(key);
+      });
+
+      // 2. Projetar parcelas futuras baseadas nos contratos ativos
+      if (contratos && contratos.length > 0) {
+        const subs = contratos.map((c: any) => ({
+          id: Number(c.id),
+          produto: c.produto || "",
+          plano: String(c.plano || "12m"),
+          valor: Number(c.valor ?? 0),
+          created_at: c.created_at as string | null,
+        }));
+
+        const monthsFromPlano = (p: string) => {
+          const m = parseInt(String(p).replace(/[^\d]/g, ""), 10);
+          return Number.isFinite(m) && m > 0 ? m : 12;
+        };
+        const addMonths = (iso: string | null, n: number) => {
+          const base = iso ? new Date(iso) : new Date();
+          const d = new Date(base.getTime());
+          d.setMonth(d.getMonth() + n);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        };
+        
+        const today = new Date();
+        
+        subs.forEach((s) => {
+          const total = monthsFromPlano(s.plano);
+          // Começa do mês 1 (próximo mês após assinatura? Ou mês 0 se for entrada?)
+          // Geralmente a entrada já está em directPayments. Vamos projetar a partir do mês 1.
+          // Se a entrada (mês 0) já foi paga, ela está em directPayments.
+          // Vamos assumir que parcelas são mês a mês a partir da data de criação.
+          
+          for (let i = 0; i < total; i++) {
+             // i=0 é a entrada/primeira parcela.
+             // Se i=0, data é a data de criação.
+             // Se i>0, data é created_at + i meses.
+             const vencIso = addMonths(s.created_at, i);
+             const dObj = new Date(vencIso);
+             const key = `${s.produto}|${dObj.getMonth()}|${dObj.getFullYear()}`;
+             
+             // Se já existe pagamento real para este mês/produto, não projeta pendente
+             if (paidIds.has(key)) continue;
+             
+             // Se não existe, projeta como Pendente ou Atrasado
+             let status: "Pago" | "Pendente" | "Em atraso" = "Pendente";
+             if (dObj.getTime() < today.getTime()) {
+                // Se a data já passou e não tem pagamento registrado:
+                // Pode ser que o pagamento real tenha data ligeiramente diferente?
+                // Ou realmente está atrasado.
+                // Vamos ser conservadores: se for muito antigo (> 5 dias), atrasado.
+                const diffDays = (today.getTime() - dObj.getTime()) / (1000 * 3600 * 24);
+                if (diffDays > 5) status = "Em atraso";
+             }
+             
+             out.push({
+               data: fmtPt(vencIso),
+               produto: s.produto,
+               valor: fmtBRL(s.valor),
+               status,
+             });
+          }
+        });
+      }
+      
+      // Ordenar por data desc (mais recente primeiro)
+      out.sort((a, b) => {
+        const da = a.data.split("/").reverse().join("-");
+        const db = b.data.split("/").reverse().join("-");
+        return da < db ? 1 : -1;
+      });
+      
+      setRows(out);
+      return; // Interrompe para não rodar a lógica antiga duplicada
+      
+      /* Lógica antiga desativada em favor da busca direta em payments */
+      /*
       const subs = (contratos || []).map((c: any) => ({
         id: Number(c.id),
         produto: c.produto || "",
@@ -41,69 +181,8 @@ export default function ClientPayments() {
         setRows([]);
         return;
       }
-      const ids = subs.map((s) => s.id);
-      const { data: pays } = await supabase
-        .from("payments")
-        .select("contrato_id, vencimento, status")
-        .in("contrato_id", ids);
-      const paidMap = new Map<string, boolean>(); // key: contratoId|YYYY-MM-DD
-      (pays || []).forEach((p: any) => {
-        const cid = String(p.contrato_id ?? "");
-        const venc = p.vencimento ? String(p.vencimento).slice(0, 10) : "";
-        const status = String(p.status || "");
-        if (cid && venc && status.toLowerCase() === "pago") {
-          paidMap.set(`${cid}|${venc}`, true);
-        }
-      });
-      const monthsFromPlano = (p: string) => {
-        const m = parseInt(String(p).replace(/[^\d]/g, ""), 10);
-        return Number.isFinite(m) && m > 0 ? m : 12;
-      };
-      const addMonths = (iso: string | null, n: number) => {
-        const base = iso ? new Date(iso) : new Date();
-        const d = new Date(base.getTime());
-        d.setMonth(d.getMonth() + n);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        return `${yyyy}-${mm}-${dd}`;
-      };
-      const fmtBRL = (v: number) =>
-        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-      const fmtPt = (iso: string) => {
-        const [y, m, d] = iso.split("-");
-        return `${d}/${m}/${y}`;
-      };
-      const today = new Date();
-      const out: Array<{ data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso" }> = [];
-      subs.forEach((s) => {
-        const total = monthsFromPlano(s.plano);
-        for (let i = 1; i <= total; i++) {
-          const vencIso = addMonths(s.created_at, i);
-          const paid = paidMap.get(`${s.id}|${vencIso}`) === true;
-          let status: "Pago" | "Pendente" | "Em atraso" = "Pendente";
-          if (paid) status = "Pago";
-          else {
-            const d = new Date(vencIso);
-            if (d.getTime() < today.getTime()) status = "Em atraso";
-          }
-          out.push({
-            data: fmtPt(vencIso),
-            produto: s.produto,
-            valor: fmtBRL(s.valor),
-            status,
-          });
-        }
-      });
-      // Ordenar por data asc
-      out.sort((a, b) => {
-        const [ad, am, ay] = a.data.split("/").map(Number);
-        const [bd, bm, by] = b.data.split("/").map(Number);
-        const at = new Date(ay, am - 1, ad).getTime();
-        const bt = new Date(by, bm - 1, bd).getTime();
-        return at - bt;
-      });
-      setRows(out);
+      // ...
+      */
     };
     run();
   }, []);

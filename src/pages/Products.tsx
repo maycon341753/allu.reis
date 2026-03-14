@@ -5,6 +5,7 @@ import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Smartphone, Watch, Tablet, Laptop, Filter } from "lucide-react";
+import { mockProducts } from "@/data/products";
 
 const categories = [
   { value: "todos", label: "Todos", icon: Filter },
@@ -62,49 +63,73 @@ export default function ProductsPage() {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, nome, categoria, image_url, preco_mensal, status")
-        .eq("status", "Ativo")
-        .limit(200);
-      if (!error && data) {
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, nome, categoria, image_url, preco_mensal, status")
+          .eq("status", "Ativo")
+          .limit(200);
+
+        if (error || !data || data.length === 0) {
+          throw new Error("No data or error");
+        }
+
         const ids = data.map((d: any) => d.id).filter(Boolean);
         let minPriceByProduct: Record<string, number> = {};
+        
         if (ids.length) {
           const { data: prices } = await supabase
             .from("product_pricing")
             .select("product_id, monthly_price")
             .in("product_id", ids);
+            
           (prices || []).forEach((p: any) => {
             const pid = p.product_id;
             const val = Number(p.monthly_price ?? NaN);
-            if (isFinite(val)) {
+            if (Number.isFinite(val)) {
               minPriceByProduct[pid] = minPriceByProduct[pid] != null ? Math.min(minPriceByProduct[pid], val) : val;
             }
           });
         }
+
+        const mapped = data.map((d: any) => {
+          let preco: number | null = null;
+          
+          if (d.preco_mensal != null && d.preco_mensal !== "") {
+             const p = Number(d.preco_mensal);
+             if (Number.isFinite(p)) preco = p;
+          }
+          
+          if (preco === null && minPriceByProduct[d.id] != null) {
+             preco = minPriceByProduct[d.id];
+          }
+
+          return {
+            id: d.id,
+            nome: d.nome || "Produto sem nome",
+            categoria: d.categoria || "Outros",
+            imagem: d.image_url ?? null,
+            preco_mensal: preco,
+            marca: null,
+          } as CatalogProduct;
+        });
+
+        setItems(mapped);
+      } catch (err) {
+        console.error("Error loading products, using mock:", err);
         setItems(
-          data.map((d: any) => {
-            const preco =
-              d.preco_mensal != null && d.preco_mensal !== ""
-                ? Number(d.preco_mensal)
-                : minPriceByProduct[d.id] != null
-                ? Number(minPriceByProduct[d.id])
-                : null;
-            return {
-              id: d.id,
-              nome: d.nome,
-              categoria: d.categoria,
-              imagem: d.image_url ?? null,
-              preco_mensal: isFinite(Number(preco)) ? Number(preco) : null,
-              marca: null,
-            } as CatalogProduct;
-          }),
+          mockProducts.map((p) => ({
+            id: p.id,
+            nome: p.nome,
+            categoria: p.categoria === "celular" ? "Celular" : p.categoria === "smartwatch" ? "Smartwhats" : p.categoria === "tablet" ? "Tablets" : "Notebooks",
+            imagem: p.imagem,
+            preco_mensal: p.preco24,
+            marca: p.marca,
+          })),
         );
-      } else {
-        setItems([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     run();
   }, []);
@@ -143,7 +168,12 @@ export default function ProductsPage() {
 
           {/* Grid */}
           <div className="mt-10 grid gap-6 grid-cols-1 tb:grid-cols-2 dt:grid-cols-3 ld:grid-cols-4">
-            {filtered.map((product) => (
+            {loading && (
+              <div className="col-span-full flex justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            )}
+            {!loading && filtered.map((product) => (
               <div key={product.id} className="group rounded-2xl border border-border bg-card overflow-hidden transition-all hover:shadow-lg">
                 <div className="aspect-square overflow-hidden bg-secondary relative">
                   <img

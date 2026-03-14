@@ -21,6 +21,7 @@ export default function CheckoutPayment() {
   const [showPix, setShowPix] = useState(false);
   const [pixData, setPixData] = useState<any>(null);
   const [pollId, setPollId] = useState<any>(null);
+  const [success, setSuccess] = useState(false);
   
   // Credit Card State
   const [cardName, setCardName] = useState("");
@@ -60,12 +61,8 @@ export default function CheckoutPayment() {
       return;
     }
     const { data: authData } = await supabase.auth.getUser();
-    const uid = authData?.user?.id;
-    if (!uid || uid !== profile.id) {
-      setLoading(false);
-      navigate(`/login?next=${encodeURIComponent(`/checkout/${id}/pagamento`)}`);
-      return;
-    }
+    // Permitir seguir com Pix se já houver cadastro por CPF, mesmo sem login ativo
+    const uid = authData?.user?.id || profile.id;
 
     // Fix transaction amount parsing
     // info.total might be "199.90" or "R$ 199.90/mês"
@@ -254,23 +251,48 @@ export default function CheckoutPayment() {
       try {
         await supabase.from("orders").insert({
           cliente: payerName,
+          email: info.email || payerEmail || null,
+          cpf: info.cpf || cleanCpf || null,
+          telefone: info.telefone || null,
           produto: product.nome,
           plano: info.plano,
+          valor_mensal: String(amount),
           forma_pagamento: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
           status: "Em análise",
           user_id: uid,
+          cep: address.cep || null,
+          logradouro: address.entrega || address.residencial || null,
+          numero: address.numero || null,
+          complemento: address.complemento || null,
+          bairro: address.bairro || null,
+          cidade: address.cidade || null,
+          estado: address.estado || null,
         });
       } catch {}
+      
+      // Criar contrato imediatamente (se não existir pendente para este produto)
+      // Vinculado ao user_id (uid) para aparecer em Meus Aluguéis
       try {
-        await supabase.from("contratos").insert({
-          cliente: payerName,
-          produto: product.nome,
-          plano: info.plano,
-          valor: amount,
-          status: "Em análise",
-          user_id: uid,
-        });
+        const { data: existing } = await supabase
+          .from("contratos")
+          .select("id")
+          .eq("user_id", uid)
+          .eq("produto", product.nome)
+          .in("status", ["Em análise", "Pendente", "Aprovado"])
+          .maybeSingle();
+          
+        if (!existing) {
+          await supabase.from("contratos").insert({
+            cliente: payerName,
+            produto: product.nome,
+            plano: info.plano,
+            valor: amount,
+            status: "Em análise", // Status inicial até aprovação do admin
+            user_id: uid,
+          });
+        }
       } catch {}
+      
       setLoading(false);
       
       // Redirect logic for PIX (using ticket_url)
@@ -300,7 +322,7 @@ export default function CheckoutPayment() {
                 setPollId(null);
                 setShowPix(false);
                 await supabase.from("payments").update({ status: "Pago" }).eq("external_id", String(pdata.id));
-                navigate(`/login?next=${encodeURIComponent("/cliente/pagamentos")}`);
+                setSuccess(true);
               }
             }
           } catch {}
@@ -309,7 +331,7 @@ export default function CheckoutPayment() {
         return;
       }
       
-      navigate("/cliente/pagamentos");
+      setSuccess(true);
 
     } catch (networkError: any) {
       setLoading(false);
@@ -411,6 +433,17 @@ export default function CheckoutPayment() {
         </div>
       </main>
       <Footer />
+      <Dialog open={success} onOpenChange={setSuccess}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pagamento aprovado!</DialogTitle>
+            <DialogDescription>Obrigado por assinar. Você será redirecionado para acessar seu perfil.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button onClick={() => navigate(`/login?next=${encodeURIComponent("/cliente/pagamentos")}`)}>Ir para Login</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Pix Modal */}
       <Dialog open={showPix} onOpenChange={(o) => {
         setShowPix(o);

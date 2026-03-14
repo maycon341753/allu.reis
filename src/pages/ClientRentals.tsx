@@ -15,7 +15,7 @@ const menuItems = [
 export default function ClientRentals() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [rows, setRows] = useState<Array<{ id: string; produto: string; plano: string; valor: string; restante: string }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; produto: string; plano: string; valor: string; restante: string; status: string }>>([]);
   const [pending, setPending] = useState<Array<{ id: string; produto: string; plano: string; valor: string; status: string }>>([]);
   const formatBRL = (v: any) =>
     v != null
@@ -34,14 +34,37 @@ export default function ClientRentals() {
 
   useEffect(() => {
     const run = async () => {
-      const { data, error } = await supabase
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) {
+        setRows([]);
+        setPending([]);
+        return;
+      }
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", uid).maybeSingle();
+      const userName = profile?.full_name;
+
+      let query = supabase
         .from("contratos")
-        .select("id, produto, plano, valor, status, created_at")
+        .select("id, produto, plano, valor, status, created_at, user_id")
         .order("created_at", { descending: true })
         .limit(20);
+
+      if (userName) {
+        query = query.or(`user_id.eq.${uid},cliente.eq.${userName}`);
+      } else {
+        query = query.eq("user_id", uid);
+      }
+      
+      const { data, error } = await query;
       if (!error && data) {
-        const approved = data.filter((d: any) => d.status === "Aprovado");
-        const pend = data.filter((d: any) => d.status === "Em análise" || d.status === "Pendente");
+        const approved = data.filter((d: any) => d.status === "Aprovado" || d.status === "Ativo");
+        const pend = data.filter((d: any) => 
+          d.status === "Em análise" || 
+          d.status === "Em analise" || 
+          d.status === "Pendente" ||
+          d.status === "Aguardando aprovação"
+        );
         setRows(
           approved.map((d: any) => ({
             id: d.id || "",
@@ -49,6 +72,7 @@ export default function ClientRentals() {
             plano: d.plano || "",
             valor: d.valor,
             restante: calcRestante(d.plano, d.created_at),
+            status: d.status || "Aprovado",
           })),
         );
         setPending(
@@ -143,7 +167,12 @@ export default function ClientRentals() {
           {rows.length > 0 ? (
             rows.map((rental) => (
               <div key={rental.id} className="rounded-xl border border-border bg-card p-5">
-                <h3 className="font-display font-semibold">{rental.produto}</h3>
+                <div className="flex items-start justify-between">
+                  <h3 className="font-display font-semibold">{rental.produto}</h3>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${rental.status === "Aprovado" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"}`}>
+                    {rental.status}
+                  </span>
+                </div>
                 <div className="mt-3 space-y-1 text-sm text-muted-foreground">
                   <p>Plano: {rental.plano || "—"}</p>
                   <p>Valor mensal: {formatBRL(rental.valor)}</p>

@@ -61,7 +61,27 @@ export default function CheckoutAddress() {
       setProduct(data || null);
       try {
         const saved = localStorage.getItem("checkoutInfo");
-        if (saved) setInfo(JSON.parse(saved));
+        if (saved) {
+          const inf = JSON.parse(saved);
+          setInfo(inf);
+          if (inf.cpf) {
+            const digits = inf.cpf.replace(/\D/g, "");
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("endereco_entrega, endereco_residencial, cep, complemento, bairro, cidade, estado")
+              .eq("cpf", digits)
+              .maybeSingle();
+            if (prof) {
+              if (prof.endereco_entrega) setEntrega(prof.endereco_entrega);
+              if (prof.endereco_residencial) setResidencial(prof.endereco_residencial);
+              if (prof.cep) setCep(formatCEP(prof.cep));
+              if (prof.complemento) setComplemento(prof.complemento);
+              if (prof.bairro) setBairro(prof.bairro);
+              if (prof.cidade) setCidade(prof.cidade);
+              if (prof.estado) setEstado(prof.estado);
+            }
+          }
+        }
       } catch {}
     };
     run();

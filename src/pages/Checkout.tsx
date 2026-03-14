@@ -75,6 +75,23 @@ export default function Checkout() {
     return out.trim();
   };
   const onlyDigits = (v: string) => v.replace(/\D/g, "");
+  const fmtISOToPT = (s: string) => {
+    if (!s) return "";
+    // Accept YYYY-MM-DD or ISO datetime
+    try {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      const d = new Date(s);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = d.getFullYear();
+      return `${dd}/${mm}/${yy}`;
+    } catch {
+      return s;
+    }
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -134,23 +151,72 @@ export default function Checkout() {
     run();
   }, [id]);
 
+  const lookupByCpf = async (cpfMasked: string) => {
+    const digits = onlyDigits(cpfMasked);
+    if (digits.length !== 11) return;
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, phone, email, nascimento")
+        .eq("cpf", digits)
+        .maybeSingle();
+      if (prof) {
+        if (prof.full_name) setNome(String(prof.full_name));
+        if (prof.phone) setTelefone(formatPhone(String(prof.phone)));
+        if (prof.email) setEmail(String(prof.email));
+        if (prof.nascimento) setNascimento(fmtISOToPT(String(prof.nascimento)));
+      } else {
+        // Se não encontrar o CPF, limpamos os campos para evitar mistura de dados
+        // mas apenas se o usuário não tiver digitado nada manualmente ainda?
+        // Melhor limpar para garantir que não fique dados de outro CPF
+        // Mas se ele estiver digitando...
+        // Vamos manter o comportamento de NÃO limpar se não achar, para não apagar o que ele digitou antes de terminar o CPF.
+        // O requisito diz: "caso nao tenha cadastro deixar com que o usuario preencha normalmente"
+      }
+    } catch {}
+  };
+
   const goToAddress = async () => {
     if (!product) return;
-    if (!nome || !cpf || !email || !telefone || !nascimento) return;
-    const info = {
-      nome,
-      cpf: onlyDigits(cpf),
-      email,
-      telefone,
-      nascimento,
-      plano,
-      cupom,
-      total,
-    };
+    const cpfDigits = onlyDigits(cpf);
+    if (!cpfDigits || cpfDigits.length !== 11) return;
     try {
-      localStorage.setItem("checkoutInfo", JSON.stringify(info));
-    } catch {}
-    navigate(`/checkout/${id}/endereco`);
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name, phone, email, nascimento")
+        .eq("cpf", cpfDigits)
+        .maybeSingle();
+      
+      const nm = nome || String(prof?.full_name || "");
+      const em = email || String(prof?.email || "");
+      const tel = telefone || formatPhone(String(prof?.phone || ""));
+      const nasc = nascimento || fmtISOToPT(String(prof?.nascimento || ""));
+      
+      if (!nm || !em || !tel || !nasc) return;
+      const info = {
+        nome: nm,
+        cpf: cpfDigits,
+        email: em,
+        telefone: tel,
+        nascimento: nasc,
+        plano,
+        cupom,
+        total,
+      };
+      
+      try {
+        localStorage.setItem("checkoutInfo", JSON.stringify(info));
+      } catch {}
+
+      if (!prof) {
+        navigate(`/cadastro?next=${encodeURIComponent(`/checkout/${id}/endereco`)}`);
+        return;
+      }
+      
+      navigate(`/checkout/${id}/endereco`);
+    } catch {
+      return;
+    }
   };
 
   return (
@@ -228,13 +294,25 @@ export default function Checkout() {
             <div className="rounded-2xl border border-border bg-card p-6">
               <h2 id="dados-contrato" className="font-display text-lg font-semibold">Dados do contrato</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="ck_cpf">CPF</Label>
+                  <Input
+                    id="ck_cpf"
+                    value={cpf}
+                    onChange={(e) => {
+                      const v = formatCPF(e.target.value);
+                      setCpf(v);
+                      if (onlyDigits(v).length === 11) {
+                        lookupByCpf(v);
+                      }
+                    }}
+                    onBlur={(e) => lookupByCpf(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
                 <div className="sm:col-span-2">
                   <Label htmlFor="ck_nome">Nome completo</Label>
                   <Input id="ck_nome" value={nome} onChange={(e) => setNome(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="ck_cpf">CPF</Label>
-                  <Input id="ck_cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="mt-1" />
                 </div>
                 <div>
                   <Label htmlFor="ck_nasc">Data de nascimento</Label>

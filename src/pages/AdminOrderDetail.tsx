@@ -33,6 +33,7 @@ interface Order {
   email: string;
   cpf: string;
   telefone: string;
+  user_id?: string;
   produto: string;
   plano: string;
   valor_mensal: string;
@@ -86,10 +87,57 @@ export default function AdminOrderDetail() {
       try {
         const { data: ord } = await supabase
           .from("orders")
-          .select("id, cliente, email, cpf, telefone, produto, plano, valor_mensal, forma_pagamento, status, created_at, cep, logradouro, numero, complemento, bairro, cidade, estado")
+          .select("id, cliente, email, cpf, telefone, user_id, produto, plano, valor_mensal, forma_pagamento, status, created_at, cep, logradouro, numero, complemento, bairro, cidade, estado")
           .eq("id", id)
           .maybeSingle();
-        setOrder(ord || null);
+        let merged = ord || null;
+
+        if (merged) {
+          if (!merged.email || !merged.cpf || !merged.telefone || !merged.valor_mensal || !merged.forma_pagamento || !merged.cep || !merged.logradouro || !merged.bairro || !merged.cidade || !merged.estado) {
+            const { data: pay } = await supabase
+              .from("payments")
+              .select("cliente_email, cliente_cpf, cliente_telefone, valor, billing_type, metodo, entrega_endereco, residencial_endereco, cep, complemento, bairro, cidade, estado")
+              .eq("cliente", merged.cliente)
+              .eq("produto", merged.produto)
+              .order("created_at", { descending: true })
+              .limit(1)
+              .maybeSingle();
+            if (pay) {
+              const forma = merged.forma_pagamento || pay.billing_type || (pay.metodo === "pix" ? "PIX" : pay.metodo === "cartao" ? "CREDIT_CARD" : "");
+              merged = {
+                ...merged,
+                email: merged.email || pay.cliente_email || "",
+                cpf: merged.cpf || pay.cliente_cpf || "",
+                telefone: merged.telefone || pay.cliente_telefone || "",
+                valor_mensal: merged.valor_mensal || (pay.valor != null ? String(pay.valor) : ""),
+                forma_pagamento: forma || "",
+                cep: merged.cep || pay.cep || "",
+                logradouro: merged.logradouro || pay.entrega_endereco || pay.residencial_endereco || "",
+                complemento: merged.complemento || pay.complemento || "",
+                bairro: merged.bairro || pay.bairro || "",
+                cidade: merged.cidade || pay.cidade || "",
+                estado: merged.estado || pay.estado || "",
+              };
+            }
+          }
+          if ((!merged.email || !merged.cpf || !merged.telefone) && merged.user_id) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("email, cpf, phone, full_name")
+              .eq("id", merged.user_id)
+              .maybeSingle();
+            if (prof) {
+              merged = {
+                ...merged,
+                email: merged.email || prof.email || "",
+                cpf: merged.cpf || String(prof.cpf || ""),
+                telefone: merged.telefone || prof.phone || "",
+                cliente: merged.cliente || prof.full_name || "",
+              };
+            }
+          }
+        }
+        setOrder(merged);
 
         const { data: ship } = await supabase
           .from("order_shipping")
@@ -210,14 +258,12 @@ export default function AdminOrderDetail() {
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium">{order?.status || "—"}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Criado em</span><span className="font-medium">{fmtDate(order?.created_at)}</span></div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" onClick={() => updateStatus("Em análise")}>Em análise</Button>
-              <Button variant="success" onClick={() => updateStatus("Aprovado")}>Aprovar</Button>
-              <Button variant="destructive" onClick={() => updateStatus("Recusado")}>Recusar</Button>
-              <Button variant="destructive" onClick={() => updateStatus("Cancelado")}>Cancelar</Button>
-            </div>
-            <div className="mt-2">
-              <Button variant="outline" onClick={() => setShipOpen(true)}>Marcar como Enviado</Button>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Button className="w-full" variant="outline" onClick={() => updateStatus("Em análise")}>Em análise</Button>
+              <Button className="w-full" variant="success" onClick={() => updateStatus("Aprovado")}>Aprovar</Button>
+              <Button className="w-full" variant="destructive" onClick={() => updateStatus("Recusado")}>Recusar</Button>
+              <Button className="w-full" variant="destructive" onClick={() => updateStatus("Cancelado")}>Cancelar</Button>
+              <Button className="w-full col-span-2 sm:col-span-3" variant="outline" onClick={() => setShipOpen(true)}>Marcar como Enviado</Button>
             </div>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">

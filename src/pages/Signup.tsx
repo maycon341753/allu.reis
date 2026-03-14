@@ -11,15 +11,55 @@ import { useToast } from "@/hooks/use-toast";
 export default function SignupPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("checkoutInfo");
+      if (saved) {
+        const obj = JSON.parse(saved);
+        if (obj.nome) setName(obj.nome);
+        if (obj.email) setEmail(obj.email);
+        if (obj.telefone) setPhoneInput(obj.telefone);
+        if (obj.cpf) {
+          const d = String(obj.cpf || "").replace(/\D/g, "");
+          const v =
+            d.length <= 3
+              ? d
+              : d.length <= 6
+              ? `${d.slice(0, 3)}.${d.slice(3)}`
+              : d.length <= 9
+              ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+              : `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
+          setCpf(v);
+        }
+      }
+    } catch {}
+  }, []);
+
   const formatCpf = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 11);
     if (d.length <= 3) return d;
     if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
     if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
     return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
+  };
+  const formatPhone = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 11);
+    const ddd = d.slice(0, 2);
+    const nine = d.slice(2, 3);
+    const p1 = d.length > 10 ? d.slice(3, 7) : d.slice(2, 6);
+    const p2 = d.length > 10 ? d.slice(7, 11) : d.slice(6, 10);
+    let out = "";
+    if (ddd) out = `(${ddd})`;
+    if (d.length > 10) out = `(${ddd}) ${nine}${p1}${p2 ? "-" + p2 : ""}`;
+    else if (p1) out = `(${ddd}) ${p1}${p2 ? "-" + p2 : ""}`;
+    return out.trim();
   };
   const isValidCpfFormat = (v: string) => /^[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}$/.test(v.trim());
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -29,7 +69,7 @@ export default function SignupPage() {
     const data = new FormData(form);
     const full_name = String(data.get("name") || "").trim();
     const email = String(data.get("email") || "").trim();
-    const phone = String(data.get("phone") || "").trim();
+    const phone = phoneInput.trim();
     const password = String(data.get("password") || "");
     const passwordConfirm = String(data.get("passwordConfirm") || "");
     const cpfValue = cpf.trim();
@@ -98,24 +138,6 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("checkoutInfo");
-      if (saved) {
-        const obj = JSON.parse(saved);
-        const d = String(obj?.cpf || "").replace(/\D/g, "");
-        const v =
-          d.length <= 3
-            ? d
-            : d.length <= 6
-            ? `${d.slice(0, 3)}.${d.slice(3)}`
-            : d.length <= 9
-            ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
-            : `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9, 11)}`;
-        setCpf(v);
-      }
-    } catch {}
-  }, []);
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -129,12 +151,12 @@ export default function SignupPage() {
             <p className="mt-2 text-muted-foreground">Comece a alugar tecnologia agora</p>
           </div>
 
-          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-4" onSubmit={handleSubmit} autoComplete="off">
             <div>
               <Label htmlFor="name">Nome completo</Label>
               <div className="relative mt-1">
                 <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="name" name="name" placeholder="Seu nome" className="pl-10" required />
+                <Input id="name" name="name" placeholder="Seu nome" className="pl-10" required autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
             </div>
             <div>
@@ -152,6 +174,7 @@ export default function SignupPage() {
                   value={cpf}
                   onChange={(e) => setCpf(formatCpf(e.target.value))}
                   maxLength={14}
+                  autoComplete="off"
                   onBlur={(e) => {
                     const v = e.target.value.trim();
                     if (!isValidCpfFormat(v)) {
@@ -171,14 +194,25 @@ export default function SignupPage() {
               <Label htmlFor="email">E-mail</Label>
               <div className="relative mt-1">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" name="email" type="email" placeholder="seu@email.com" className="pl-10" required />
+                <Input id="email" name="email" type="email" placeholder="seu@email.com" className="pl-10" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
             </div>
             <div>
               <Label htmlFor="phone">Telefone</Label>
               <div className="relative mt-1">
                 <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input id="phone" name="phone" placeholder="(11) 99999-9999" className="pl-10" required />
+                <Input
+                  id="phone"
+                  name="phone"
+                  placeholder="(11) 99999-9999"
+                  className="pl-10"
+                  required
+                  inputMode="numeric"
+                  maxLength={16}
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(formatPhone(e.target.value))}
+                  autoComplete="off"
+                />
               </div>
             </div>
             <div>
@@ -192,6 +226,7 @@ export default function SignupPage() {
                   placeholder="Mínimo 8 caracteres"
                   className="pl-10"
                   required
+                  autoComplete="new-password"
                 />
               </div>
             </div>
@@ -206,6 +241,7 @@ export default function SignupPage() {
                   placeholder="Repita a senha"
                   className="pl-10"
                   required
+                  autoComplete="new-password"
                 />
               </div>
             </div>

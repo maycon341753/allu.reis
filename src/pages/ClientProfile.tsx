@@ -40,6 +40,34 @@ export default function ClientProfile() {
   const [addrBairro, setAddrBairro] = useState("");
   const [addrCidade, setAddrCidade] = useState("");
   const [addrEstado, setAddrEstado] = useState("");
+  const [addrSaving, setAddrSaving] = useState(false);
+  const formatCEP = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 8);
+    const p1 = d.slice(0, 5);
+    const p2 = d.slice(5, 8);
+    let out = "";
+    if (p1) out = p1;
+    if (p2) out = `${p1}-${p2}`;
+    return out;
+  };
+  const handleCepChange = async (v: string) => {
+    const masked = formatCEP(v);
+    setAddrCEP(masked);
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 8) {
+      try {
+        const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const j = await r.json();
+        if (!j.erro) {
+          if (!addrEntrega) setAddrEntrega(j.logradouro || "");
+          if (!addrResidencial) setAddrResidencial(j.logradouro || "");
+          setAddrBairro(j.bairro || "");
+          setAddrCidade(j.localidade || "");
+          setAddrEstado(j.uf || "");
+        }
+      } catch {}
+    }
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -50,7 +78,7 @@ export default function ClientProfile() {
       setEmail(session.user.email || "");
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, phone, cpf")
+        .select("full_name, phone, cpf, endereco_residencial, endereco_entrega, cep, complemento, bairro, cidade, estado")
         .eq("id", session.user.id)
         .maybeSingle();
       if (profile) {
@@ -58,24 +86,33 @@ export default function ClientProfile() {
         setPhone(profile.phone || "");
         const cpfDigits = String(profile.cpf || "");
         setCpf(formatCpf(cpfDigits));
-        // Buscar último endereço usado (pagamentos) pelo CPF
-        const cpfClean = cpfDigits.replace(/\D/g, "");
-        if (cpfClean) {
-          const { data: pay } = await supabase
-            .from("payments")
-            .select("entrega_endereco, residencial_endereco, cep, complemento, bairro, cidade, estado, id")
-            .eq("cliente_cpf", cpfClean)
-            .order("id", { descending: true })
-            .limit(1);
-          const a = Array.isArray(pay) && pay.length ? pay[0] : null;
-          if (a) {
-            setAddrEntrega(a.entrega_endereco || "");
-            setAddrResidencial(a.residencial_endereco || "");
-            setAddrCEP(a.cep || "");
-            setAddrComp(a.complemento || "");
-            setAddrBairro(a.bairro || "");
-            setAddrCidade(a.cidade || "");
-            setAddrEstado(a.estado || "");
+        // Priorizar endereço salvo no perfil; se vazio, tentar do último pagamento
+        setAddrResidencial(profile.endereco_residencial || "");
+        setAddrEntrega(profile.endereco_entrega || "");
+        setAddrCEP(profile.cep || "");
+        setAddrComp(profile.complemento || "");
+        setAddrBairro(profile.bairro || "");
+        setAddrCidade(profile.cidade || "");
+        setAddrEstado(profile.estado || "");
+        if (!profile.endereco_residencial && !profile.endereco_entrega) {
+          const cpfClean = cpfDigits.replace(/\D/g, "");
+          if (cpfClean) {
+            const { data: pay } = await supabase
+              .from("payments")
+              .select("entrega_endereco, residencial_endereco, cep, complemento, bairro, cidade, estado, id")
+              .eq("cliente_cpf", cpfClean)
+              .order("id", { descending: true })
+              .limit(1);
+            const a = Array.isArray(pay) && pay.length ? pay[0] : null;
+            if (a) {
+              setAddrEntrega(a.entrega_endereco || "");
+              setAddrResidencial(a.residencial_endereco || "");
+              setAddrCEP(a.cep || "");
+              setAddrComp(a.complemento || "");
+              setAddrBairro(a.bairro || "");
+              setAddrCidade(a.cidade || "");
+              setAddrEstado(a.estado || "");
+            }
           }
         }
       }
@@ -83,6 +120,30 @@ export default function ClientProfile() {
     run();
   }, []);
 
+  const saveAddress = async () => {
+    if (!uid) return;
+    try {
+      setAddrSaving(true);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          endereco_residencial: addrResidencial.trim(),
+          endereco_entrega: addrEntrega.trim(),
+          cep: addrCEP.trim(),
+          complemento: addrComp.trim(),
+          bairro: addrBairro.trim(),
+          cidade: addrCidade.trim(),
+          estado: addrEstado.trim(),
+        })
+        .eq("id", uid);
+      if (error) throw error;
+      toast({ title: "Endereço atualizado" });
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar endereço", description: err?.message || "Tente novamente" });
+    } finally {
+      setAddrSaving(false);
+    }
+  };
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading || !uid) return;
@@ -147,9 +208,7 @@ export default function ClientProfile() {
       <main className="flex-1 p-6 md:p-8">
         <h1 className="font-display text-2xl font-bold">Perfil</h1>
         <p className="mt-1 text-muted-foreground">
-          Seus dados pessoais e endereço estão bloqueados para edição. Para alterar, acesse{" "}
-          <Link to="/cliente/suporte" className="text-primary underline hover:text-primary/80">Suporte</Link>{" "}
-          e abra um chamado.
+          Dados pessoais bloqueados. Seu endereço pode ser atualizado abaixo.
         </p>
 
         <form className="mt-8 grid gap-4 sm:grid-cols-2" onSubmit={handleSave}>
@@ -192,44 +251,47 @@ export default function ClientProfile() {
           <div className="sm:col-span-2">
             <Label htmlFor="addr_res">Endereço residencial</Label>
             <div className="relative mt-1">
-              <Input id="addr_res" value={addrResidencial} readOnly disabled placeholder="Endereço residencial" />
+              <Input id="addr_res" value={addrResidencial} onChange={(e) => setAddrResidencial(e.target.value)} placeholder="Endereço residencial" />
             </div>
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="addr_ent">Endereço de entrega</Label>
             <div className="relative mt-1">
-              <Input id="addr_ent" value={addrEntrega} readOnly disabled placeholder="Endereço de entrega" />
+              <Input id="addr_ent" value={addrEntrega} onChange={(e) => setAddrEntrega(e.target.value)} placeholder="Endereço de entrega" />
             </div>
           </div>
           <div>
             <Label htmlFor="addr_cep">CEP</Label>
             <div className="relative mt-1">
-              <Input id="addr_cep" value={addrCEP} readOnly disabled placeholder="00000-000" />
+              <Input id="addr_cep" value={addrCEP} onChange={(e) => handleCepChange(e.target.value)} placeholder="00000-000" maxLength={9} inputMode="numeric" />
             </div>
           </div>
           <div>
             <Label htmlFor="addr_comp">Complemento</Label>
             <div className="relative mt-1">
-              <Input id="addr_comp" value={addrComp} readOnly disabled placeholder="Complemento" />
+              <Input id="addr_comp" value={addrComp} onChange={(e) => setAddrComp(e.target.value)} placeholder="Complemento" />
             </div>
           </div>
           <div>
             <Label htmlFor="addr_bairro">Bairro</Label>
             <div className="relative mt-1">
-              <Input id="addr_bairro" value={addrBairro} readOnly disabled placeholder="Bairro" />
+              <Input id="addr_bairro" value={addrBairro} onChange={(e) => setAddrBairro(e.target.value)} placeholder="Bairro" />
             </div>
           </div>
           <div>
             <Label htmlFor="addr_cidade">Cidade</Label>
             <div className="relative mt-1">
-              <Input id="addr_cidade" value={addrCidade} readOnly disabled placeholder="Cidade" />
+              <Input id="addr_cidade" value={addrCidade} onChange={(e) => setAddrCidade(e.target.value)} placeholder="Cidade" />
             </div>
           </div>
           <div>
             <Label htmlFor="addr_estado">Estado</Label>
             <div className="relative mt-1">
-              <Input id="addr_estado" value={addrEstado} readOnly disabled placeholder="UF" />
+              <Input id="addr_estado" value={addrEstado} onChange={(e) => setAddrEstado(e.target.value)} placeholder="UF" />
             </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Button onClick={saveAddress} disabled={addrSaving}>Salvar endereço</Button>
           </div>
         </form>
       </main>
