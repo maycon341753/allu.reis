@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
@@ -51,7 +52,7 @@ export default function AdminUsers() {
     if (!authLoading) {
       requireAuth();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, requireAuth]);
 
   useEffect(() => {
     const run = async () => {
@@ -94,7 +95,7 @@ export default function AdminUsers() {
       setLoading(false);
     };
     run();
-  }, []);
+  }, [user, authLoading, navigate]);
 
   const toggleAdmin = async (row: ProfileRow) => {
     const next = !row.is_admin;

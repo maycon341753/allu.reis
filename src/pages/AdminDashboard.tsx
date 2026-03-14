@@ -132,7 +132,7 @@ export default function AdminDashboard() {
       setFinance({ recebidoMes: fmt, pendentes: String(pend) });
     };
     run();
-  }, [user, authLoading]);
+  }, [user, authLoading, requireAuth, navigate]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">

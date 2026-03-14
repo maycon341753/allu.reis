@@ -64,7 +64,7 @@ export default function AdminContracts() {
     if (!authLoading) {
       requireAuth();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, requireAuth]);
 
   useEffect(() => {
     const run = async () => {
@@ -108,7 +108,7 @@ export default function AdminContracts() {
       }
     };
     run();
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   const closeContract = async (row: ContractRow) => {
     const prev = rows.slice();

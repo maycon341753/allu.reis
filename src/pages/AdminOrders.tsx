@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -75,7 +76,7 @@ export default function AdminOrders() {
     if (!authLoading) {
       requireAuth();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, requireAuth]);
 
   const statusBadgeClass = (s: string) => {
     const k = (s || "").toLowerCase().trim();
@@ -91,7 +92,6 @@ export default function AdminOrders() {
     const run = async () => {
       if (authLoading || !user) return;
       
-      // Verificar se é admin
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_admin")
@@ -105,7 +105,6 @@ export default function AdminOrders() {
 
       setLoading(true);
       try {
-        // Alguns ambientes podem não ter created_at; ordene por id para evitar erro
         const { data, error } = await supabase
           .from("orders")
           .select("id, cliente, produto, plano, forma_pagamento, status, created_at")
@@ -141,7 +140,7 @@ export default function AdminOrders() {
       }
     };
     run();
-  }, []);
+  }, [authLoading, user, navigate]);
 
   const updateStatus = async (row: OrderRow, status: string) => {
     const prev = rows.slice();
@@ -345,7 +344,7 @@ export default function AdminOrders() {
                     <Link to={`/admin/pedidos/${row.id}`}>Detalhes</Link>
                   </Button>
                   {row.status === "Em análise" && (
-                    <Button className="flex-1" variant="success" onClick={() => updateStatus(row, "Aprovado")}>
+                    <Button className="flex-1" variant="default" onClick={() => updateStatus(row, "Aprovado")}>
                       Aprovar
                     </Button>
                   )}

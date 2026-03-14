@@ -75,7 +75,7 @@ export default function AdminProducts() {
     if (!authLoading) {
       requireAuth();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, requireAuth]);
 
   useEffect(() => {
     if (!pFile) {
@@ -222,7 +222,7 @@ export default function AdminProducts() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading, navigate]);
 
   const setStatus = async (row: ProductRow, status: ProductRow["status"]) => {
     const prev = rows.slice();
