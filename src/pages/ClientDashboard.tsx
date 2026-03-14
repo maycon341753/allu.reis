@@ -71,9 +71,13 @@ export default function ClientDashboard() {
       const { data: contratos } = await supabase
         .from("contratos")
         .select("status, plano, created_at")
+        .eq("cliente_cpf", cpfDigits)
         .order("created_at", { descending: false })
         .limit(50);
-      const ativos = (contratos || []).filter((c: any) => c.status === "Aprovado");
+      const ativos = (contratos || []).filter((c: any) => 
+        String(c.status).toLowerCase() === "aprovado" || 
+        String(c.status).toLowerCase() === "ativo"
+      );
       setProdutosAtivos(ativos.length);
       setAlugadosCount(ativos.length);
       const statusResumo =

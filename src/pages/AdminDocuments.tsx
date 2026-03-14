@@ -125,6 +125,26 @@ export default function AdminDocuments() {
     }
   };
 
+  const deleteDocument = async (row: DocRow) => {
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir o anexo deste documento? O status será alterado para Rejeitado.");
+    if (!confirmDelete) return;
+
+    const prev = rows.slice();
+    setRows((r) => r.map((x) => (x.id === row.id ? { ...x, url: null, status: "Rejeitado" } : x)));
+    
+    const { error } = await supabase
+      .from("documents")
+      .update({ url: null, status: "Rejeitado" })
+      .eq("id", row.id);
+
+    if (error) {
+      setRows(prev);
+      toast({ title: "Erro ao excluir anexo", description: error.message });
+    } else {
+      toast({ title: "Anexo excluído e status alterado para Rejeitado" });
+    }
+  };
+
   const openUrl = (url?: string | null) => {
     if (!url) {
       toast({ title: "Sem arquivo", description: "Este documento não possui URL vinculada" });
@@ -203,7 +223,6 @@ export default function AdminDocuments() {
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">CPF</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
@@ -223,8 +242,7 @@ export default function AdminDocuments() {
                 return cpfOk || nomeOk || tipoOk;
               })).map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{row.id}</td>
-                  <td className="px-4 py-3">{row.cliente_nome || "—"}</td>
+                  <td className="px-4 py-3 font-medium">{row.cliente_nome || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.cliente_cpf || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.tipo}</td>
                   <td className="px-4 py-3">
@@ -241,9 +259,9 @@ export default function AdminDocuments() {
                   <td className="px-4 py-3 text-muted-foreground">{row.atualizado_em || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)}>Ver</Button>
+                      <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)} disabled={!row.url}>Ver</Button>
                       <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+                      <Button variant="destructive" size="sm" onClick={() => deleteDocument(row)}>Excluir</Button>
                     </div>
                   </td>
                 </tr>
@@ -293,9 +311,9 @@ export default function AdminDocuments() {
               <div className="text-xs text-muted-foreground">Atualizado: {row.atualizado_em || "—"}</div>
               
               <div className="grid grid-cols-3 gap-2 mt-2">
-                <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)}>Ver</Button>
+                <Button variant="secondary" size="sm" onClick={() => openUrl(row.url)} disabled={!row.url}>Ver</Button>
                 <Button variant="success" size="sm" onClick={() => updateStatus(row, "Aprovado")}>Aprovar</Button>
-                <Button variant="destructive" size="sm" onClick={() => updateStatus(row, "Rejeitado")}>Rejeitar</Button>
+                <Button variant="destructive" size="sm" onClick={() => deleteDocument(row)}>Excluir</Button>
               </div>
             </div>
           ))}

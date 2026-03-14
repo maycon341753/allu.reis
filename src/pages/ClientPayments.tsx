@@ -16,7 +16,7 @@ const menuItems = [
 
 export default function ClientPayments() {
   const location = useLocation();
-  const [rows, setRows] = useState<Array<{ id: string; data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso"; raw: any }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; data: string; produto: string; valor: string; status: "Pago" | "Pendente" | "Em atraso"; metodo: string; raw: any }>>([]);
   const [stats, setStats] = useState({ pagas: 0, pendentes: 0, total: 0 });
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -68,6 +68,7 @@ export default function ClientPayments() {
         produto: p.produto || "Mensalidade",
         valor: formatBRL(p.valor),
         status: (p.status === "approved" || p.status === "Pago" ? "Pago" : p.status) as "Pago" | "Pendente" | "Em atraso",
+        metodo: p.metodo || "Pix",
         raw: p
       }));
 
@@ -162,6 +163,7 @@ export default function ClientPayments() {
               <tr className="border-b border-border bg-secondary/50">
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Método</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Valor</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ações</th>
@@ -172,6 +174,7 @@ export default function ClientPayments() {
                 <tr key={i} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">{row.data}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
+                  <td className="px-4 py-3 text-muted-foreground uppercase">{row.metodo}</td>
                   <td className="px-4 py-3">{row.valor}</td>
                   <td className="px-4 py-3">
                     <span
@@ -213,7 +216,10 @@ export default function ClientPayments() {
           {rows.map((row, i) => (
             <div key={i} className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col gap-3">
               <div className="flex justify-between items-start">
-                <div className="font-semibold text-foreground">{row.produto}</div>
+                <div>
+                  <div className="font-semibold text-foreground">{row.produto}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase mt-0.5">{row.metodo}</div>
+                </div>
                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                   row.status === "Pago" ? "bg-primary/10 text-primary" : "bg-yellow-500/10 text-yellow-600"
                 }`}>

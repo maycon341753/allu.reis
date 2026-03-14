@@ -275,7 +275,6 @@ export default function AdminContracts() {
           <table className="min-w-[720px] w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Cliente</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Plano</th>
@@ -289,8 +288,7 @@ export default function AdminContracts() {
                 .filter((r) => r.status === "Em análise" || r.status === "Pendente")
                 .map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{row.id}</td>
-                  <td className="px-4 py-3">{row.cliente}</td>
+                  <td className="px-4 py-3 font-medium">{row.cliente}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.plano}</td>
                   <td className="px-4 py-3">{formatBRL(row.valor_mensal)}</td>
@@ -329,7 +327,7 @@ export default function AdminContracts() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-muted-foreground" colSpan={6}>
                     {loading ? "Carregando..." : "Nenhum contrato encontrado"}
                   </td>
                 </tr>

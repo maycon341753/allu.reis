@@ -114,7 +114,7 @@ export default function AdminPayments() {
 
         const { data, error } = await supabase
           .from("payments")
-          .select("id, cliente, contrato_id, produto, valor, vencimento, status")
+          .select("id, cliente, contrato_id, produto, valor, vencimento, status, metodo")
           .limit(100);
         if (!error) {
           setRows(
@@ -126,6 +126,7 @@ export default function AdminPayments() {
               valor: d.valor != null ? String(d.valor) : "",
               vencimento: d.vencimento || "",
               status: (d.status as PaymentRow["status"]) || "Pendente",
+              metodo: d.metodo || "Pix",
             }))
           );
         }
@@ -304,6 +305,7 @@ export default function AdminPayments() {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Contrato</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Valor</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Método</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vencimento</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ações</th>
@@ -314,7 +316,7 @@ export default function AdminPayments() {
                 .filter((r) => {
                   const cOk = !qCliente || r.cliente.toLowerCase().includes(qCliente.toLowerCase());
                   const sOk = !qStatus || r.status.toLowerCase().includes(qStatus.toLowerCase());
-                  const mOk = !qMetodo || (("" as string) + (r as any).metodo ?? "").toLowerCase().includes(qMetodo.toLowerCase());
+                  const mOk = !qMetodo || (String((r as any).metodo || "")).toLowerCase().includes(qMetodo.toLowerCase());
                   const pOk = !qProduto || r.produto.toLowerCase().includes(qProduto.toLowerCase());
                   const vOk = !qVenc || (r.vencimento || "").toLowerCase().includes(qVenc.toLowerCase());
                   return cOk && sOk && mOk && pOk && vOk;
@@ -325,6 +327,7 @@ export default function AdminPayments() {
                   <td className="px-4 py-3 text-muted-foreground">{row.contrato_id || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{row.produto}</td>
                   <td className="px-4 py-3">{formatBRL(row.valor)}</td>
+                  <td className="px-4 py-3 text-muted-foreground uppercase">{(row as any).metodo || "Pix"}</td>
                   <td className="px-4 py-3">{row.vencimento}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
