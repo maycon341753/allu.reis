@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -54,6 +54,8 @@ type OrderRow = {
 
 export default function AdminOrders() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,6 +71,12 @@ export default function AdminOrders() {
   const [codigo, setCodigo] = useState("");
   const [shipOrderId, setShipOrderId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!authLoading) {
+      requireAuth();
+    }
+  }, [authLoading, user]);
+
   const statusBadgeClass = (s: string) => {
     const k = (s || "").toLowerCase().trim();
     if (k === "aprovado" || k === "ativo") return "bg-primary/10 text-primary";
@@ -81,6 +89,20 @@ export default function AdminOrders() {
 
   useEffect(() => {
     const run = async () => {
+      if (authLoading || !user) return;
+      
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.is_admin) {
+        navigate("/cliente");
+        return;
+      }
+
       setLoading(true);
       try {
         // Alguns ambientes podem não ter created_at; ordene por id para evitar erro
@@ -190,12 +212,15 @@ export default function AdminOrders() {
           })}
         </nav>
         <div className="border-t border-sidebar-border p-3">
-          <Link
-            to="/"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <LogOut size={18} /> Sair
-          </Link>
+          </button>
         </div>
       </aside>
 

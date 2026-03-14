@@ -130,7 +130,7 @@ export default function ClientDashboard() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">

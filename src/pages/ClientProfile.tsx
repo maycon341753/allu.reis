@@ -126,7 +126,7 @@ export default function ClientProfile() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const saveAddress = async () => {
     if (!uid) return;

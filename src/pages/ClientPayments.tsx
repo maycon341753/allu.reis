@@ -100,7 +100,7 @@ export default function ClientPayments() {
       });
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const openReceipt = (payment: any) => {
     setSelectedPayment(payment);

@@ -101,7 +101,7 @@ export default function ClientRentals() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
   const abrirSuporte = () => navigate("/cliente/suporte");
   const solicitarTroca = () => navigate("/cliente/suporte");
 

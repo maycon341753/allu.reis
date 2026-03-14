@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, LogOut } from "lucide-react";
@@ -8,6 +8,7 @@ import {
   BarChart3, Settings
 } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -25,7 +26,14 @@ const menuItems = [
 
 export default function AdminSidebarMobile() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setOpen(false);
+    navigate("/login");
+  };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -66,12 +74,12 @@ export default function AdminSidebarMobile() {
             })}
           </nav>
           <div className="border-t border-sidebar-border p-3">
-            <Link 
-              to="/" 
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            <button 
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
             >
               <LogOut size={18} /> Sair
-            </Link>
+            </button>
           </div>
         </div>
       </SheetContent>

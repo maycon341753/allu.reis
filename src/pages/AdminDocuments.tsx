@@ -144,7 +144,7 @@ export default function AdminDocuments() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const updateStatus = async (row: DocRow, status: DocRow["status"]) => {
     const prev = rows.slice();

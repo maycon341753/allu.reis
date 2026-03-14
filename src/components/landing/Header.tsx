@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, LayoutDashboard, ShoppingBag, CreditCard } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, ShoppingBag, CreditCard } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 

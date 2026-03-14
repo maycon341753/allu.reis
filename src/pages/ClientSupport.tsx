@@ -118,7 +118,7 @@ export default function ClientSupport() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const makeCode = () => {
     const n = Math.floor(1000 + Math.random() * 9000);

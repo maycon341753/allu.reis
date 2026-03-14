@@ -108,7 +108,7 @@ export default function AdminContracts() {
       }
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const closeContract = async (row: ContractRow) => {
     const prev = rows.slice();

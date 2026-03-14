@@ -97,7 +97,7 @@ export default function ClientDocuments() {
       setPending(docTypes.length - docs.filter((d) => d.status === "Aprovado").length);
     };
     run();
-  }, []);
+  }, [user, authLoading]);
 
   const handleChoose = (tipo: string) => {
     if (!fileInputRef.current) return;
