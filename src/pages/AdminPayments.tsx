@@ -39,7 +39,7 @@ type PaymentRow = {
 export default function AdminPayments() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,23 +78,17 @@ export default function AdminPayments() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!profile?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -158,7 +152,7 @@ export default function AdminPayments() {
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin]);
 
   const marcarPago = async (row: PaymentRow) => {
     const prev = rows.slice();

@@ -32,7 +32,7 @@ export default function AdminUserDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -44,23 +44,17 @@ export default function AdminUserDetail() {
   const [logs, setLogs] = useState<Array<any>>([]);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user || !id) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: adminCheck } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!adminCheck?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -111,7 +105,7 @@ export default function AdminUserDetail() {
       }
     };
     run();
-  }, [id, user, authLoading, navigate]);
+  }, [id, user, authLoading, isAdmin]);
 
   const updateStatus = async () => {
     if (!id) return;

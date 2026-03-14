@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
-import { Badge } from "@/components/ui/badge";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
@@ -42,7 +42,7 @@ type ProductRow = {
 export default function AdminProducts() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,12 +70,8 @@ export default function AdminProducts() {
   const [qCategoria, setQCategoria] = useState("");
   const [qStatus, setQStatus] = useState("");
   const [qEstoqueMin, setQEstoqueMin] = useState("");
-
-  useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     if (!pFile) {
@@ -177,19 +173,22 @@ export default function AdminProducts() {
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
-      
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (authLoading) return;
 
-      if (!profile?.is_admin) {
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
+
+      if (runningRef.current) return;
+      runningRef.current = true;
 
       setLoading(true);
       try {
@@ -219,10 +218,11 @@ export default function AdminProducts() {
         setLoadError(e?.message || "Erro inesperado ao carregar produtos");
       } finally {
         setLoading(false);
+        runningRef.current = false;
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin]);
 
   const setStatus = async (row: ProductRow, status: ProductRow["status"]) => {
     const prev = rows.slice();

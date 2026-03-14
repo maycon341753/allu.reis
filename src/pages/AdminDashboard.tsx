@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import AdminSidebarMobile from "@/components/responsive/AdminSidebarMobile";
@@ -26,7 +26,7 @@ const menuItems = [
 export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
   const [payments, setPayments] = useState<Array<{ cliente: string; valor: string; status: string; metodo: string; data: string | null }>>([]);
   const [finance, setFinance] = useState<{ recebidoMes: string; pendentes: string }>({ recebidoMes: "—", pendentes: "—" });
@@ -45,94 +45,105 @@ export default function AdminDashboard() {
     pagamentos: "—",
     documentos: "—",
   });
-
-  useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user]);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
+      if (authLoading) return;
+      
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (isAdmin === null) return;
 
-      if (!profile?.is_admin) {
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
 
-      const { data, error } = await supabase
-        .from("orders")
-        .select("cliente, produto, plano, status")
-        .order("id", { descending: true })
-        .limit(10);
-      if (!error && data) {
-        setOrders(
-          data.map((d: any) => ({
-            cliente: d.cliente || "",
-            produto: d.produto || "",
-            plano: d.plano || "",
-            status: d.status || "",
-          })),
-        );
-      } else {
-        setOrders([]);
-      }
-      const countExact = async (table: string, eq?: { col: string; val: any }, schemaSelect?: string) => {
-        try {
-          let q = supabase.from(table).select(schemaSelect || "*", { count: "exact", head: true });
-          if (eq) q = q.eq(eq.col, eq.val);
-          const { count, error: cErr } = await q;
-          if (cErr) return "—";
-          return String(count ?? 0);
-        } catch {
-          return "—";
+      if (runningRef.current) return;
+      runningRef.current = true;
+
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("cliente, produto, plano, status")
+          .order("id", { descending: true })
+          .limit(10);
+        if (!error && data) {
+          setOrders(
+            data.map((d: any) => ({
+              cliente: d.cliente || "",
+              produto: d.produto || "",
+              plano: d.plano || "",
+              status: d.status || "",
+            })),
+          );
+        } else {
+          setOrders([]);
         }
-      };
-      const [users, products, pedidos, contratos, pagamentos, documentos] = await Promise.all([
-        countExact("profiles"),
-        countExact("products", { col: "status", val: "Ativo" }),
-        countExact("orders", { col: "status", val: "Em análise" }),
-        countExact("contratos", { col: "status", val: "Em análise" }),
-        countExact("payments", { col: "status", val: "Pendente" }),
-        countExact("documents", { col: "status", val: "Pendente" }),
-      ]);
-      setStats({ users, products, pedidos, contratos, pagamentos, documentos });
-      const { data: pays } = await supabase
-        .from("payments")
-        .select("cliente_nome, valor, status, metodo, created_at")
-        .order("created_at", { descending: true })
-        .limit(12);
-      const payRows = (pays || []).map((p: any) => ({
-        cliente: p.cliente_nome || "",
-        valor: String(p.valor ?? ""),
-        status: p.status || "",
-        metodo: p.metodo || "",
-        data: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : null,
-      }));
-      setPayments(payRows);
-      const now = new Date();
-      const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const toNumber = (v: string) => {
-        const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
-        return isNaN(n) ? 0 : n;
-      };
-      const recebido = payRows
-        .filter((r) => r.status === "Pago" && (r.data?.endsWith(`/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`) ?? false))
-        .reduce((sum, r) => sum + toNumber(r.valor), 0);
-      const pend = payRows.filter((r) => r.status !== "Pago").length;
-      const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(recebido);
-      setFinance({ recebidoMes: fmt, pendentes: String(pend) });
+        const countExact = async (table: string, eq?: { col: string; val: any }, schemaSelect?: string) => {
+          try {
+            let q = supabase.from(table).select(schemaSelect || "*", { count: "exact", head: true });
+            if (eq) q = q.eq(eq.col, eq.val);
+            const { count, error: cErr } = await q;
+            if (cErr) return "—";
+            return String(count ?? 0);
+          } catch {
+            return "—";
+          }
+        };
+        const [users, products, pedidos, contratos, pagamentos, documentos] = await Promise.all([
+          countExact("profiles"),
+          countExact("products", { col: "status", val: "Ativo" }),
+          countExact("orders", { col: "status", val: "Em análise" }),
+          countExact("contratos", { col: "status", val: "Em análise" }),
+          countExact("payments", { col: "status", val: "Pendente" }),
+          countExact("documents", { col: "status", val: "Pendente" }),
+        ]);
+        setStats({ users, products, pedidos, contratos, pagamentos, documentos });
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("cliente_nome, valor, status, metodo, created_at")
+          .order("created_at", { descending: true })
+          .limit(100);
+        
+        const allPayRows = (pays || []).map((p: any) => ({
+          cliente: p.cliente_nome || "",
+          valor: String(p.valor ?? ""),
+          status: p.status || "",
+          metodo: p.metodo || "",
+          data: p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR") : null,
+        }));
+
+        // Filtra apenas os 5 primeiros pagamentos com status "Pago" para exibição na tabela
+        const displayPayments = allPayRows
+          .filter(p => p.status === "Pago")
+          .slice(0, 5);
+        
+        setPayments(displayPayments);
+
+        const now = new Date();
+        const toNumber = (v: string) => {
+          const n = Number(String(v).replace(/[^\d,.-]/g, "").replace(",", "."));
+          return isNaN(n) ? 0 : n;
+        };
+
+        // Cálculo do financeiro baseado nos últimos 100 registros para maior precisão
+        const recebido = allPayRows
+          .filter((r) => r.status === "Pago" && (r.data?.endsWith(`/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`) ?? false))
+          .reduce((sum, r) => sum + toNumber(r.valor), 0);
+        
+        const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(recebido);
+        setFinance({ recebidoMes: fmt, pendentes: pagamentos });
+      } finally {
+        runningRef.current = false;
+      }
     };
     run();
-  }, [user, authLoading, requireAuth, navigate]);
+  }, [user, isAdmin, authLoading]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">

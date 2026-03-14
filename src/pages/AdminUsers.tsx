@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Package, ShoppingCart, FileText,
@@ -39,7 +39,7 @@ type ProfileRow = {
 export default function AdminUsers() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,28 +47,26 @@ export default function AdminUsers() {
   const [qCpf, setQCpf] = useState("");
   const [qEmail, setQEmail] = useState("");
   const [qStatus, setQStatus] = useState("");
-
-  useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
-      
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (authLoading) return;
 
-      if (!profile?.is_admin) {
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      if (isAdmin === null) return;
+      
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
+
+      if (runningRef.current) return;
+      runningRef.current = true;
 
       setLoading(true);
       const { data, error } = await supabase
@@ -93,9 +91,10 @@ export default function AdminUsers() {
         })));
       }
       setLoading(false);
+      runningRef.current = false;
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin]);
 
   const toggleAdmin = async (row: ProfileRow) => {
     const next = !row.is_admin;

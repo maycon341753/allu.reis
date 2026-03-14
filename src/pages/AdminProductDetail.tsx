@@ -33,7 +33,7 @@ export default function AdminProductDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [p, setP] = useState<any>(null);
@@ -63,23 +63,17 @@ export default function AdminProductDetail() {
   const [logs, setLogs] = useState<Array<{ id: string; acao: string; descricao?: string; data: string }>>([]);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user || !id) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!profile?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -148,7 +142,7 @@ export default function AdminProductDetail() {
       }
     };
     run();
-  }, [id, user, authLoading, navigate]);
+  }, [id, user, authLoading, isAdmin]);
 
   const toNumberFromBR = (v: string) => {
     const cleaned = v.replace(/\u00A0/g, " ").replace(/R\$/g, "").replace(/\s+/g, "");

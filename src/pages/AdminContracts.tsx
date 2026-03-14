@@ -43,7 +43,7 @@ type ContractRow = {
 export default function AdminContracts() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,14 +70,7 @@ export default function AdminContracts() {
     const run = async () => {
       if (authLoading || !user) return;
       
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!profile?.is_admin) {
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -108,7 +101,7 @@ export default function AdminContracts() {
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isAdmin]);
 
   const closeContract = async (row: ContractRow) => {
     const prev = rows.slice();

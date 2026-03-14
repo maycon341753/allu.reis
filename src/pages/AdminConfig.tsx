@@ -41,7 +41,7 @@ type SettingsRow = {
 export default function AdminConfig() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [s, setS] = useState<SettingsRow>({
@@ -55,23 +55,17 @@ export default function AdminConfig() {
   });
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!profile?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -89,7 +83,7 @@ export default function AdminConfig() {
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin]);
 
   const save = async () => {
     setLoading(true);

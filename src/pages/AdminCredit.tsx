@@ -38,29 +38,23 @@ type CreditRow = {
 export default function AdminCredit() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<CreditRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
-
-  useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!profile?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -88,7 +82,7 @@ export default function AdminCredit() {
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isAdmin]);
 
   const updateStatus = async (row: CreditRow, status: CreditRow["status"]) => {
     const prev = rows.slice();

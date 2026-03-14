@@ -26,32 +26,26 @@ const menuItems = [
 export default function AdminReports() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
-    }
-  }, [authLoading, user, requireAuth]);
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
 
   useEffect(() => {
     const run = async () => {
-      if (authLoading || !user) return;
+      if (authLoading) return;
 
-      // Verificar se é admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
+      if (!user) {
+        navigate("/login");
+        return;
+      }
 
-      if (!profile?.is_admin) {
+      if (isAdmin === null) return;
+
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
     };
     run();
-  }, [user, authLoading, navigate]);
+  }, [user, isAdmin, authLoading]);
 
   return (
     <div className="flex min-h-screen bg-secondary/30">

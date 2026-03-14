@@ -56,7 +56,7 @@ type OrderRow = {
 export default function AdminOrders() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isAdmin, loading: authLoading, requireAuth } = useAuth();
   const { toast } = useToast();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,13 +92,7 @@ export default function AdminOrders() {
     const run = async () => {
       if (authLoading || !user) return;
       
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!profile?.is_admin) {
+      if (isAdmin === false) {
         navigate("/cliente");
         return;
       }
@@ -140,7 +134,7 @@ export default function AdminOrders() {
       }
     };
     run();
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, isAdmin, navigate]);
 
   const updateStatus = async (row: OrderRow, status: string) => {
     const prev = rows.slice();
