@@ -46,10 +46,10 @@ export default function ClientProfile() {
   const [addrSaving, setAddrSaving] = useState(false);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
+    if (!authLoading && !user) {
+      navigate("/login");
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, navigate]);
 
   const formatCEP = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 8);

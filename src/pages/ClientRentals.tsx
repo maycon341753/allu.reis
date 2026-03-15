@@ -21,10 +21,10 @@ export default function ClientRentals() {
   const [pending, setPending] = useState<Array<{ id: string; produto: string; plano: string; valor: string; status: string; image_url?: string }>>([]);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
+    if (!authLoading && !user) {
+      navigate("/login");
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, navigate]);
 
   const formatBRL = (v: any) =>
     v != null

@@ -40,10 +40,10 @@ export default function ClientDocuments() {
   ];
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
+    if (!authLoading && !user) {
+      navigate("/login");
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     const run = async () => {

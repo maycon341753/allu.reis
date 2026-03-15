@@ -26,10 +26,10 @@ export default function ClientPayments() {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
+    if (!authLoading && !user) {
+      navigate("/login");
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     const run = async () => {

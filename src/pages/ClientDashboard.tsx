@@ -42,10 +42,10 @@ export default function ClientDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!authLoading) {
-      requireAuth();
+    if (!authLoading && !user) {
+      navigate("/login");
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     const run = async () => {
