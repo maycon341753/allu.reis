@@ -88,7 +88,7 @@ export default function CheckoutAddress() {
   }, [id]);
 
   const goToPayment = async () => {
-    if (!product || !info) return;
+    if (loading || !product || !info) return;
     if (!entrega || !residencial || !cep || !bairro || !cidade || !estado) {
       alert("Preencha todos os campos obrigatórios do endereço.");
       return;
@@ -99,10 +99,12 @@ export default function CheckoutAddress() {
     try {
       localStorage.setItem("addressInfo", JSON.stringify(addr));
       
-      // Pre-create the payment record as "Pendente" so it shows up in the client panel
+      const lastPaymentId = localStorage.getItem("last_payment_id") || localStorage.getItem("checkout_payment_id");
+      const lastOrderId = localStorage.getItem("last_order_id") || localStorage.getItem("checkout_order_id");
+      
       const cpfDigits = String(info.cpf || "").replace(/\D/g, "");
-      const { data: { user } } = await supabase.auth.getUser();
-      const uid = user?.id || info.user_id || null;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const uid = authUser?.id || info.user_id || null;
 
       let rawAmount = info.total ?? product.preco_mensal ?? 0;
       if (typeof rawAmount === "string") {
@@ -114,8 +116,8 @@ export default function CheckoutAddress() {
       dueDate.setDate(dueDate.getDate() + 3);
       const venc = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
 
-      // Insert into payments table
-      await supabase.from("payments").insert({
+      const paymentFields = {
+        id: lastPaymentId, // Provide the ID to ensure upsert works
         produto: product.nome,
         categoria: product.categoria,
         plano: info.plano,
@@ -138,10 +140,10 @@ export default function CheckoutAddress() {
         estado: estado,
         provider: "mercadopago",
         user_id: uid
-      });
+      };
 
-      // Also create an order for admin tracking
-      await supabase.from("orders").insert({
+      const orderFields = {
+        id: lastOrderId, // Provide the ID to ensure upsert works
         cliente: info.nome,
         email: info.email,
         cpf: cpfDigits,
@@ -157,15 +159,21 @@ export default function CheckoutAddress() {
         bairro: bairro,
         cidade: cidade,
         estado: estado,
-      });
+      };
 
+      // Use upsert with onConflict on id to guarantee single record creation/update
+      await supabase.from("payments").upsert(paymentFields, { onConflict: "id" });
+      await supabase.from("orders").upsert(orderFields, { onConflict: "id" });
+
+      if (lastPaymentId) localStorage.setItem("last_payment_id", lastPaymentId);
+      if (lastOrderId) localStorage.setItem("last_order_id", lastOrderId);
+
+      navigate(`/checkout/${id}/pagamento`);
     } catch (err) {
       console.error("Error pre-creating payment:", err);
     } finally {
       setLoading(false);
     }
-
-    navigate(`/checkout/${id}/pagamento`);
   };
 
   return (

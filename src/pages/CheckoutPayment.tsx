@@ -51,7 +51,7 @@ export default function CheckoutPayment() {
   }, [id]);
 
   const pay = async () => {
-    if (!product || !info || !address) return;
+    if (loading || !product || !info || !address) return;
     setLoading(true);
     const cpfDigits = String(info.cpf || "").replace(/\D/g, "");
     const { data: profile } = await supabase.from("profiles").select("id").eq("cpf", cpfDigits).maybeSingle();
@@ -220,66 +220,82 @@ export default function CheckoutPayment() {
       }
 
     // Success
-    await supabase.from("payments").insert({
-        produto: product.nome,
-        categoria: product.categoria,
-        plano: info.plano,
+    const lastPaymentId = localStorage.getItem("last_payment_id") || localStorage.getItem("checkout_payment_id");
+    const lastOrderId = localStorage.getItem("last_order_id") || localStorage.getItem("checkout_order_id");
+
+    const paymentFields = {
+      id: lastPaymentId,
+      produto: product.nome,
+      categoria: product.categoria,
+      plano: info.plano,
       total_mensal: info.total ?? product.preco_mensal ?? "",
       valor: String(amount),
       vencimento: venc,
       cliente: payerName,
-        status: pdata.status === "approved" ? "Pago" : "Pendente",
-        metodo: paymentMethod === "BOLETO" ? "pix" : "cartao",
-        cliente_nome: info.nome,
-        cliente_cpf: cleanCpf,
-        cliente_email: info.email,
-        cliente_telefone: info.telefone,
-        entrega_endereco: address.entrega,
-        residencial_endereco: address.residencial,
-        cep: address.cep,
-        complemento: address.complemento,
-        bairro: address.bairro,
-        cidade: address.cidade,
-        estado: address.estado,
-        provider: "mercadopago",
-        external_id: String(pdata.id),
-        customer_external_id: null,
-        billing_type: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
-        boleto_url: pdata.point_of_interaction?.transaction_data?.ticket_url || pdata.transaction_details?.external_resource_url || null,
-      });
-      // Create admin tracking records
-      try {
-        await supabase.from("orders").insert({
-          cliente: payerName,
-          email: info.email || payerEmail || null,
-          cpf: cleanCpf || null,
-          telefone: info.telefone || null,
-          produto: product.nome,
-          plano: info.plano,
-          valor_mensal: String(amount),
-          forma_pagamento: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
-          status: "Em análise",
-          user_id: uid,
-          cep: address.cep || null,
-          logradouro: address.entrega || address.residencial || null,
-          numero: address.numero || null,
-          complemento: address.complemento || null,
-          bairro: address.bairro || null,
-          cidade: address.cidade || null,
-          estado: address.estado || null,
-        });
-      } catch {}
+      status: pdata.status === "approved" ? "Pago" : "Pendente",
+      metodo: paymentMethod === "BOLETO" ? "pix" : "cartao",
+      cliente_nome: info.nome,
+      cliente_cpf: cleanCpf,
+      cliente_email: info.email,
+      cliente_telefone: info.telefone,
+      entrega_endereco: address.entrega,
+      residencial_endereco: address.residencial,
+      cep: address.cep,
+      complemento: address.complemento,
+      bairro: address.bairro,
+      cidade: address.cidade,
+      estado: address.estado,
+      provider: "mercadopago",
+      external_id: String(pdata.id),
+      customer_external_id: null,
+      billing_type: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
+      boleto_url: pdata.point_of_interaction?.transaction_data?.ticket_url || pdata.transaction_details?.external_resource_url || null,
+    };
+
+    await supabase.from("payments").upsert(paymentFields, { onConflict: "id" });
+
+    // Create admin tracking records
+    try {
+      const orderFields = {
+        id: lastOrderId,
+        cliente: payerName,
+        email: info.email || payerEmail || null,
+        cpf: cleanCpf || null,
+        telefone: info.telefone || null,
+        produto: product.nome,
+        plano: info.plano,
+        valor_mensal: String(amount),
+        forma_pagamento: paymentMethod === "BOLETO" ? "PIX" : "CREDIT_CARD",
+        status: "Em análise",
+        user_id: uid,
+        cep: address.cep || null,
+        logradouro: address.entrega || address.residencial || null,
+        numero: address.numero || null,
+        complemento: address.complemento || null,
+        bairro: address.bairro || null,
+        cidade: address.cidade || null,
+        estado: address.estado || null,
+      };
+
+      await supabase.from("orders").upsert(orderFields, { onConflict: "id" });
+    } catch {}
       
       // Criar contrato imediatamente (se não existir pendente para este produto)
-      // Vinculado ao user_id (uid) para aparecer em Meus Aluguéis
+      // Vinculado ao user_id (uid) ou CPF para aparecer em Meus Aluguéis
       try {
-        const { data: existing } = await supabase
+        let q = supabase
           .from("contratos")
           .select("id")
-          .eq("user_id", uid)
           .eq("produto", product.nome)
-          .in("status", ["Em análise", "Pendente", "Aprovado"])
-          .maybeSingle();
+          .in("status", ["Em análise", "Pendente", "Aprovado"]);
+          
+        if (uid) {
+          q = q.eq("user_id", uid);
+        } else {
+          q = q.eq("cliente_cpf", cleanCpf);
+        }
+
+        const { data: existing } = await q.maybeSingle();
           
         if (!existing) {
           await supabase.from("contratos").insert({
@@ -325,6 +341,10 @@ export default function CheckoutPayment() {
                 setShowPix(false);
                 await supabase.from("payments").update({ status: "Pago" }).eq("external_id", String(pdata.id));
                 setSuccess(true);
+                localStorage.removeItem("last_payment_id");
+                localStorage.removeItem("last_order_id");
+                localStorage.removeItem("checkout_order_id");
+                localStorage.removeItem("checkout_payment_id");
               }
             }
           } catch {}
@@ -334,6 +354,10 @@ export default function CheckoutPayment() {
       }
       
       setSuccess(true);
+      localStorage.removeItem("last_payment_id");
+      localStorage.removeItem("last_order_id");
+      localStorage.removeItem("checkout_order_id");
+      localStorage.removeItem("checkout_payment_id");
 
     } catch (networkError: any) {
       setLoading(false);

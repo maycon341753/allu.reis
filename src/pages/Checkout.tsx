@@ -95,6 +95,14 @@ export default function Checkout() {
   };
 
   useEffect(() => {
+    // Generate stable IDs for the checkout session to prevent duplication
+    if (!localStorage.getItem("checkout_order_id")) {
+      localStorage.setItem("checkout_order_id", crypto.randomUUID());
+    }
+    if (!localStorage.getItem("checkout_payment_id")) {
+      localStorage.setItem("checkout_payment_id", crypto.randomUUID());
+    }
+
     const run = async () => {
       // Check if user is logged in and pre-fill data
       const { data: { user } } = await supabase.auth.getUser();
