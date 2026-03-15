@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, loading: authLoading, logout } = useAuth();
-  const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ cliente: string; produto: string; plano: string; status: string; data?: string | null }>>([]);
   const [payments, setPayments] = useState<Array<{ cliente: string; valor: string; status: string; metodo: string; data: string | null }>>([]);
   const [finance, setFinance] = useState<{ recebidoMes: string; pendentes: string }>({ recebidoMes: "R$ 0,00", pendentes: "0" });
   const [stats, setStats] = useState<{
@@ -57,8 +57,8 @@ export default function AdminDashboard() {
       try {
         const { data: orderData, error: orderError } = await supabase
           .from("orders")
-          .select("cliente, produto, plano, status")
-          .order("id", { descending: true })
+          .select("cliente, produto, plano, status, created_at")
+          .order("created_at", { ascending: false })
           .limit(10);
         
         if (orderError) console.error("Erro ao carregar pedidos:", orderError);
@@ -69,6 +69,7 @@ export default function AdminDashboard() {
             produto: d.produto || "",
             plano: d.plano || "",
             status: d.status || "",
+            data: d.created_at ? new Date(d.created_at).toLocaleDateString("pt-BR") + " " + new Date(d.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }) : null,
           })),
         );
 
@@ -282,6 +283,7 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">Produto</th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">Plano</th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data</th>
                 </tr>
               </thead>
               <tbody>
@@ -299,6 +301,7 @@ export default function AdminDashboard() {
                         {order.status}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">{order.data || "—"}</td>
                   </tr>
                 ))}
                 {orders.length === 0 && (
@@ -327,7 +330,10 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground">{order.produto}</div>
-                <div className="text-xs text-muted-foreground">{order.plano}</div>
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <span>{order.plano}</span>
+                  <span>{order.data}</span>
+                </div>
               </div>
             ))}
             {orders.length === 0 && (

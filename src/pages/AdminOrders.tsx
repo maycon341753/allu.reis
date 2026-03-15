@@ -91,7 +91,7 @@ export default function AdminOrders() {
         const { data, error } = await supabase
           .from("orders")
           .select("id, cliente, produto, plano, forma_pagamento, status, created_at")
-          .order("id", { descending: true })
+          .order("created_at", { ascending: false })
           .limit(100);
         if (!error) {
           const fmt = (s?: string | null) => {
@@ -101,7 +101,9 @@ export default function AdminOrders() {
               const dd = String(d.getDate()).padStart(2, "0");
               const mm = String(d.getMonth() + 1).padStart(2, "0");
               const yy = d.getFullYear();
-              return `${dd}/${mm}/${yy}`;
+              const hh = String(d.getHours()).padStart(2, "0");
+              const min = String(d.getMinutes()).padStart(2, "0");
+              return `${dd}/${mm}/${yy} ${hh}:${min}`;
             } catch {
               return s || null;
             }
